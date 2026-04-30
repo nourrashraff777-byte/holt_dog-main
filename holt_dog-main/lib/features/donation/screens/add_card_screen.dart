@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../other_pages/payment_processing_page.dart';
 
 class AddCardScreen extends StatelessWidget {
   static const String routeName = '/addCardScreen';
@@ -85,7 +86,9 @@ class AddCardScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () {},
+                        onPressed: () {
+                          context.push(PaymentProcessingScreen.routeName);
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4A148C),
                           padding: const EdgeInsets.symmetric(vertical: 18),

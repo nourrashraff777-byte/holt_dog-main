@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../other_pages/payment_processing_page.dart';
 
 class EWalletScreen extends StatefulWidget {
   static const String routeName = '/eWalletScreen';
@@ -172,21 +174,35 @@ class _EWalletScreenState extends State<EWalletScreen> {
   }
 
   Widget _buildFooter() {
-    return Container(
-      height: 70,
-      decoration: const BoxDecoration(
-        gradient:
-            LinearGradient(colors: [Color(0xFF8A2BE2), Color(0xFFB565D6)]),
-        borderRadius: BorderRadius.only(
-            topLeft: Radius.elliptical(200, 40),
-            topRight: Radius.elliptical(200, 40)),
-      ),
-      child: const Center(
-        child: Text('Continue',
-            style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold)),
+    return GestureDetector(
+      onTap: () {
+        if (_selectedMethod == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select a payment method first.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          return;
+        }
+        context.push(PaymentProcessingScreen.routeName);
+      },
+      child: Container(
+        height: 70,
+        decoration: const BoxDecoration(
+          gradient:
+              LinearGradient(colors: [Color(0xFF8A2BE2), Color(0xFFB565D6)]),
+          borderRadius: BorderRadius.only(
+              topLeft: Radius.elliptical(200, 40),
+              topRight: Radius.elliptical(200, 40)),
+        ),
+        child: const Center(
+          child: Text('Continue',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold)),
+        ),
       ),
     );
   }

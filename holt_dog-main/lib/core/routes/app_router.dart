@@ -5,6 +5,9 @@ import 'package:holt_dog/features/donation/screens/donation_screen.dart';
 import 'package:holt_dog/features/donation/screens/add_card_screen.dart';
 import 'package:holt_dog/features/donation/screens/e_wallet_screen.dart';
 import 'package:holt_dog/features/insurance_side/screens/insurance_home_screen.dart';
+import 'package:holt_dog/features/other_pages/payment_processing_page.dart';
+import 'package:holt_dog/features/other_pages/payment_success_page.dart';
+import 'package:holt_dog/features/other_pages/payment_failed_page.dart';
 import 'package:holt_dog/features/retailer_side/screens/retailer_home_screen.dart';
 import 'package:holt_dog/features/user_side/reports/screens/my_report_screen.dart';
 import '../../features/onboarding/screens/splash_screen.dart';
@@ -27,6 +30,7 @@ class AppRouter {
   static const String verifyOtp = '/verify-otp';
   static const String resetPassword = '/reset-password';
   static const String privacyPolicy = '/privacy-policy';
+  static const String userHome = '/userHome';
 
   static final GoRouter router = GoRouter(
     initialLocation: splash,
@@ -98,6 +102,21 @@ class AppRouter {
         path: EWalletScreen.routeName,
         name: 'eWalletScreen',
         builder: (context, state) => const EWalletScreen(),
+      ),
+      GoRoute(
+        path: PaymentProcessingScreen.routeName,
+        name: 'paymentProcessing',
+        builder: (context, state) => const PaymentProcessingScreen(),
+      ),
+      GoRoute(
+        path: PaymentSuccessScreen.routeName,
+        name: 'paymentSuccess',
+        builder: (context, state) => const PaymentSuccessScreen(),
+      ),
+      GoRoute(
+        path: PaymentFailedScreen.routeName,
+        name: 'paymentFailed',
+        builder: (context, state) => const PaymentFailedScreen(),
       ),
       GoRoute(
         path: DoctorHomeScreen.routeName,

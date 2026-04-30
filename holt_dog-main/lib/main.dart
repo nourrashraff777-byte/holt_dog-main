@@ -8,12 +8,15 @@ import 'core/services/auth_service.dart';
 import 'core/services/firestore_service.dart';
 import 'features/auth/cubit/auth_cubit.dart';
 import 'features/user_side/user_home/cubit/home_cubit.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     debugPrint('Firebase Initialized Successfully ✅');
   } catch (e) {
     debugPrint('Firebase initialization failed: $e ');

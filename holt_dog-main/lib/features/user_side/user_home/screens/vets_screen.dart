@@ -3,46 +3,95 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/services/location_service.dart';
 import '../models/vet_model.dart';
 import '../widgets/user_quick_actions_widgets.dart';
 
-class VetsScreen extends StatelessWidget {
+class VetsScreen extends StatefulWidget {
   const VetsScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Mock Data for UI testing during development
-    final List<Vet> mockVets = [
-      Vet(
-        id: '1',
-        name: 'GIZA MEDICAL CENTER',
-        address: 'Giza City , Egypt',
-        phone: '0123456789',
-        status: VetStatus.available,
-      ),
-      Vet(
-        id: '2',
-        name: 'VET CLINIC',
-        address: 'NASR ROAD, Giza',
-        phone: '0122334455',
-        status: VetStatus.available,
-      ),
-      Vet(
-        id: '3',
-        name: 'Zayed Vet Clinic',
-        address: '11 Sheikh Zayed, Giza, Egypt',
-        phone: '0111222333',
-        status: VetStatus.closed,
-      ),
-      Vet(
-        id: '4',
-        name: 'Pet Health Center',
-        address: '6th of October City, Giza',
-        phone: '0101010101',
-        status: VetStatus.closed,
-      ),
-    ];
+  State<VetsScreen> createState() => _VetsScreenState();
+}
 
+class _VetsScreenState extends State<VetsScreen> {
+  String _cityName = 'Detecting location…';
+  bool _locationGranted = false;
+  bool _loadingLocation = true;
+
+  // ── Mock data (replace with Firestore call when backend is ready) ──────────
+  final List<Vet> _vets = [
+    Vet(
+      id: '1',
+      name: 'GIZA MEDICAL CENTER',
+      address: 'Giza City, Egypt',
+      phone: '0123456789',
+      status: VetStatus.available,
+    ),
+    Vet(
+      id: '2',
+      name: 'VET CLINIC',
+      address: 'NASR ROAD, Giza',
+      phone: '0122334455',
+      status: VetStatus.available,
+    ),
+    Vet(
+      id: '3',
+      name: 'Zayed Vet Clinic',
+      address: '11 Sheikh Zayed, Giza, Egypt',
+      phone: '0111222333',
+      status: VetStatus.closed,
+    ),
+    Vet(
+      id: '4',
+      name: 'Pet Health Center',
+      address: '6th of October City, Giza',
+      phone: '0101010101',
+      status: VetStatus.closed,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    setState(() {
+      _loadingLocation = true;
+      _cityName = 'Detecting location…';
+    });
+
+    final position = await LocationService.getLocationWithPermission();
+
+    if (!mounted) return;
+
+    if (position == null) {
+      setState(() {
+        _locationGranted = false;
+        _loadingLocation = false;
+        _cityName = 'Location unavailable';
+      });
+      return;
+    }
+
+    setState(() {
+      _locationGranted = true;
+    });
+
+    final city =
+        await LocationService.getCityName(position.latitude, position.longitude);
+
+    if (!mounted) return;
+    setState(() {
+      _cityName = city;
+      _loadingLocation = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -55,15 +104,25 @@ class VetsScreen extends StatelessWidget {
             subtitle: 'get fast veterinary assistance',
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(20.w),
-              child: Column(
-                children: [
-                  const _LocationInfoCard(),
-                  SizedBox(height: 20.h),
-                  ...mockVets.map((vet) => _VetCard(vet: vet)),
-                  SizedBox(height: 100.h), // Bottom Nav space
-                ],
+            child: RefreshIndicator(
+              onRefresh: _fetchLocation,
+              color: AppColors.primaryMagenta,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(20.w),
+                child: Column(
+                  children: [
+                    _LocationInfoCard(
+                      cityName: _cityName,
+                      isLoading: _loadingLocation,
+                      isGranted: _locationGranted,
+                      onRetry: _fetchLocation,
+                    ),
+                    SizedBox(height: 20.h),
+                    ..._vets.map((vet) => _VetCard(vet: vet)),
+                    SizedBox(height: 100.h),
+                  ],
+                ),
               ),
             ),
           ),
@@ -73,8 +132,22 @@ class VetsScreen extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Location info card
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _LocationInfoCard extends StatelessWidget {
-  const _LocationInfoCard();
+  final String cityName;
+  final bool isLoading;
+  final bool isGranted;
+  final VoidCallback onRetry;
+
+  const _LocationInfoCard({
+    required this.cityName,
+    required this.isLoading,
+    required this.isGranted,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -84,16 +157,37 @@ class _LocationInfoCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(15.r),
         border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
+          // Status icon
           Container(
             padding: EdgeInsets.all(8.w),
-            decoration: const BoxDecoration(
-              color: Colors.green,
+            decoration: BoxDecoration(
+              color: _iconBgColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.check, color: Colors.white, size: 16.w),
+            child: isLoading
+                ? SizedBox(
+                    width: 16.w,
+                    height: 16.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Icon(
+                    isGranted ? Icons.check : Icons.location_off,
+                    color: Colors.white,
+                    size: 16.w,
+                  ),
           ),
           SizedBox(width: 12.w),
           Expanded(
@@ -101,23 +195,39 @@ class _LocationInfoCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Giza , Egypt',
-                  style: AppTypography.h3.copyWith(fontSize: 18.sp),
+                  cityName,
+                  style: AppTypography.h3.copyWith(fontSize: 16.sp),
                 ),
                 SizedBox(height: 4.h),
                 Text(
-                  'Your location has been accurately shared and at our presence',
+                  isGranted
+                      ? 'Your location has been detected. Showing nearby vets.'
+                      : 'Location permission denied. Tap retry to enable.',
                   style: AppTypography.caption
                       .copyWith(color: AppColors.textSecondary),
                 ),
               ],
             ),
           ),
+          if (!isGranted && !isLoading)
+            IconButton(
+              onPressed: onRetry,
+              icon: Icon(Icons.refresh, color: AppColors.primaryMagenta),
+            ),
         ],
       ),
     );
   }
+
+  Color get _iconBgColor {
+    if (isLoading) return Colors.blue;
+    return isGranted ? Colors.green : Colors.red;
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Vet card
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _VetCard extends StatelessWidget {
   final Vet vet;
@@ -166,7 +276,7 @@ class _VetCard extends StatelessWidget {
                         color: statusColor, size: 14.w),
                     SizedBox(width: 4.w),
                     Text(
-                      isAvailable ? 'available' : 'Closed',
+                      isAvailable ? 'Available' : 'Closed',
                       style: AppTypography.caption.copyWith(
                         color: statusColor,
                         fontWeight: FontWeight.bold,

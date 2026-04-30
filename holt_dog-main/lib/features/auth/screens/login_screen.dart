@@ -40,13 +40,12 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleLogin() {
-    _navigateBySelectedUserType();
-    // if (_formKey.currentState!.validate()) {
-    //   context.read<AuthCubit>().login(
-    //         _emailController.text.trim(),
-    //         _passwordController.text.trim(),
-    //       );
-    // }
+    if (_formKey.currentState!.validate()) {
+      context.read<AuthCubit>().login(
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
+    }
   }
 
   void _navigateBySelectedUserType() {

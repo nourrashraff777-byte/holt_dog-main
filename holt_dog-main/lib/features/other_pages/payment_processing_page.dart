@@ -1,9 +1,38 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
-class PaymentProcessingScreen extends StatelessWidget {
+import 'payment_failed_page.dart';
+import 'payment_success_page.dart';
+
+class PaymentProcessingScreen extends StatefulWidget {
+  static const String routeName = '/paymentProcessing';
   const PaymentProcessingScreen({super.key});
+
+  @override
+  State<PaymentProcessingScreen> createState() =>
+      _PaymentProcessingScreenState();
+}
+
+class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Simulate a 3-second payment check, then go to success or failed.
+    // Replace the random result with your real payment API call.
+    Timer(const Duration(seconds: 3), () {
+      if (!mounted) return;
+      // TODO: Replace with actual result from your payment gateway.
+      final bool paymentSuccess = true;
+      if (paymentSuccess) {
+        context.go(PaymentSuccessScreen.routeName);
+      } else {
+        context.go(PaymentFailedScreen.routeName);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -17,19 +46,19 @@ class PaymentProcessingScreen extends StatelessWidget {
             child: Container(
               height: 220,
               width: double.infinity,
-              color: const Color(0xFFC23B9B), // Pinkish-Purple
+              color: const Color(0xFFC23B9B),
               child: const Stack(
                 children: [
                   Positioned(
                     top: 40,
                     right: 30,
-                    child: Icon(Icons.pets, color: Colors.white, size: 40), // Fixed: Using standard pets icon
+                    child: Icon(Icons.pets, color: Colors.white, size: 40),
                   ),
                   Center(
                     child: Padding(
                       padding: EdgeInsets.only(top: 20),
                       child: Text(
-                        "Payment Processing ...",
+                        'Payment Processing ...',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 22,
@@ -58,7 +87,7 @@ class PaymentProcessingScreen extends StatelessWidget {
                   border: Border.all(color: Colors.grey.shade400),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha:0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 5),
                     )
@@ -68,7 +97,7 @@ class PaymentProcessingScreen extends StatelessWidget {
                   "Please don't close the\napp while we confirm\nyour payment",
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFF1A237E), // Deep Blue
+                    color: Color(0xFF1A237E),
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     height: 1.4,
@@ -94,7 +123,8 @@ class PaymentProcessingScreen extends StatelessWidget {
               color: const Color(0xFFC23B9B),
               alignment: Alignment.bottomLeft,
               padding: const EdgeInsets.all(30),
-              child: const Icon(Icons.favorite, color: Colors.white, size: 50),
+              child:
+                  const Icon(Icons.favorite, color: Colors.white, size: 50),
             ),
           ),
         ],
@@ -103,7 +133,9 @@ class PaymentProcessingScreen extends StatelessWidget {
   }
 }
 
-// --- CUSTOM CLIPPERS ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom Clippers
+// ─────────────────────────────────────────────────────────────────────────────
 
 class HeaderArcClipper extends CustomClipper<Path> {
   @override
@@ -119,6 +151,7 @@ class HeaderArcClipper extends CustomClipper<Path> {
     path.close();
     return path;
   }
+
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
@@ -131,16 +164,20 @@ class FooterWaveClipper extends CustomClipper<Path> {
     path.lineTo(0, 40);
     var firstControlPoint = Offset(size.width * 0.4, 0);
     var firstEndPoint = Offset(size.width, size.height);
-    path.quadraticBezierTo(firstControlPoint.dx, firstControlPoint.dy, firstEndPoint.dx, firstEndPoint.dy);
+    path.quadraticBezierTo(firstControlPoint.dx, firstControlPoint.dy,
+        firstEndPoint.dx, firstEndPoint.dy);
     path.lineTo(size.width, size.height);
     path.close();
     return path;
   }
+
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
 
-// --- ANIMATED SPINNER ---
+// ─────────────────────────────────────────────────────────────────────────────
+// Animated Spinner
+// ─────────────────────────────────────────────────────────────────────────────
 
 class LoadingSpinner extends StatefulWidget {
   const LoadingSpinner({super.key});
@@ -149,13 +186,16 @@ class LoadingSpinner extends StatefulWidget {
   State<LoadingSpinner> createState() => _LoadingSpinnerState();
 }
 
-class _LoadingSpinnerState extends State<LoadingSpinner> with SingleTickerProviderStateMixin {
+class _LoadingSpinnerState extends State<LoadingSpinner>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(seconds: 2))
+          ..repeat();
   }
 
   @override
@@ -175,7 +215,7 @@ class _LoadingSpinnerState extends State<LoadingSpinner> with SingleTickerProvid
         );
       },
       child: const Icon(
-        Icons.autorenew, // Standard material icon for loading
+        Icons.autorenew,
         size: 50,
         color: Colors.black87,
       ),

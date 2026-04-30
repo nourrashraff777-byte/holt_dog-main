@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import 'payment_processing_page.dart';
 
 class PaymentFailedScreen extends StatelessWidget {
+  static const String routeName = '/paymentFailed';
   const PaymentFailedScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Determine screen width to handle the curved header gracefully on web/mobile
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF6A0DAD), // Deep purple background
+      backgroundColor: const Color(0xFF6A0DAD),
       body: Center(
         child: ConstrainedBox(
-          // Restrict width for web to maintain the mobile layout look
           constraints: const BoxConstraints(maxWidth: 450),
           child: Stack(
             children: [
-              // White curved header at the top
+              // ── White curved header ────────────────────────────────────
               Positioned(
                 top: 0,
                 left: 0,
@@ -28,15 +29,15 @@ class PaymentFailedScreen extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.vertical(
                       bottom: Radius.elliptical(
-                        screenWidth > 450 ? 450 : screenWidth, 
+                        screenWidth > 450 ? 450 : screenWidth,
                         120,
                       ),
                     ),
                   ),
                 ),
               ),
-              
-              // Main content
+
+              // ── Main content ───────────────────────────────────────────
               SafeArea(
                 child: Column(
                   children: [
@@ -52,60 +53,59 @@ class PaymentFailedScreen extends StatelessWidget {
                           ),
                           child: IconButton(
                             icon: const Icon(
-                              Icons.arrow_back_ios_new, 
-                              color: Colors.white, 
+                              Icons.arrow_back_ios_new,
+                              color: Colors.white,
                               size: 18,
                             ),
                             onPressed: () {
-                              // Handle back action
+                              if (context.canPop()) {
+                                context.pop();
+                              } else {
+                                context.go('/userHome');
+                              }
                             },
                           ),
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 10),
-                    
-                    // Header Text
+
                     const Text(
                       'Oops!',
                       style: TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
-                        fontFamily: 'Georgia', // Using a serif font to match the image
+                        fontFamily: 'Georgia',
                         color: Colors.black,
                       ),
                     ),
-                    
+
                     const Spacer(flex: 2),
-                    
-                    // Center Image 
-                    // Note: Replace the Container below with your actual asset:
-                    // Image.asset('assets/crying_dog.png', height: 150)
-                    Container(
+
+                    // Dog emoji as placeholder
+                    const SizedBox(
                       height: 150,
                       width: 150,
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          '🐶', 
+                          '🐶',
                           style: TextStyle(fontSize: 80),
                         ),
                       ),
                     ),
-                    
+
                     const Spacer(flex: 1),
-                    
+
                     // Error Message Card
                     Container(
                       width: double.infinity,
-                      margin: const EdgeInsets.symmetric(horizontal: 40),
-                      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                      margin:
+                          const EdgeInsets.symmetric(horizontal: 40),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 24, horizontal: 20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFE6D7FF), // Light lilac color
+                        color: const Color(0xFFE6D7FF),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: const Text(
@@ -119,19 +119,21 @@ class PaymentFailedScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    
+
                     const Spacer(flex: 2),
-                    
-                    // Try Again Button
+
+                    // ── Try Again button ───────────────────────────────────
                     ElevatedButton(
                       onPressed: () {
-                        // Handle try again action
+                        // Go back to the payment processing screen to retry
+                        context.go(PaymentProcessingScreen.routeName);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFD9D9D9), // Light grey button
+                        backgroundColor: const Color(0xFFD9D9D9),
                         foregroundColor: Colors.black,
                         elevation: 0,
-                        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 14),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 40, vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(24),
                         ),
@@ -144,7 +146,7 @@ class PaymentFailedScreen extends StatelessWidget {
                         ),
                       ),
                     ),
-                    
+
                     const Spacer(flex: 1),
                   ],
                 ),

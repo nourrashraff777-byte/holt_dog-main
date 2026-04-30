@@ -3,43 +3,92 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/services/location_service.dart';
 import '../models/shelter_model.dart';
 import '../widgets/user_quick_actions_widgets.dart';
 
-class SheltersScreen extends StatelessWidget {
+class SheltersScreen extends StatefulWidget {
   const SheltersScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Mock Data for UI testing during development
-    final List<Shelter> mockShelters = [
-      Shelter(
-        id: '1',
-        name: 'Mira Gamal Shelter',
-        address:
-            'B6 رئيس مجلس المعادي، قسم مصر الجديدة، محافظة القاهرة 4460231',
-        phone: '01147572385',
-        status: ShelterStatus.available,
-        rating: 4.5,
-      ),
-      Shelter(
-        id: '2',
-        name: 'Animal Protection Foundation Shelter - APF',
-        address: 'المعادي، أبو النمرس، محافظة الجيزة 3361113',
-        phone: '01221104994',
-        status: ShelterStatus.available,
-        rating: 4.0,
-      ),
-      Shelter(
-        id: '3',
-        name: 'Society for Protection of Animal Rights in Egypt S.P.A.R.E',
-        address: '8 Sakara Road, Giza, Shabramant, Al-Mansouriya',
-        phone: '0233813855',
-        status: ShelterStatus.closed,
-        rating: 3.5,
-      ),
-    ];
+  State<SheltersScreen> createState() => _SheltersScreenState();
+}
 
+class _SheltersScreenState extends State<SheltersScreen> {
+  String _cityName = 'Detecting location…';
+  bool _locationGranted = false;
+  bool _loadingLocation = true;
+
+  // ── Mock data (replace with Firestore call when backend is ready) ──────────
+  final List<Shelter> _shelters = [
+    Shelter(
+      id: '1',
+      name: 'Mira Gamal Shelter',
+      address:
+          'B6 رئيس مجلس المعادي، قسم مصر الجديدة، محافظة القاهرة 4460231',
+      phone: '01147572385',
+      status: ShelterStatus.available,
+      rating: 4.5,
+    ),
+    Shelter(
+      id: '2',
+      name: 'Animal Protection Foundation Shelter - APF',
+      address: 'المعادي، أبو النمرس، محافظة الجيزة 3361113',
+      phone: '01221104994',
+      status: ShelterStatus.available,
+      rating: 4.0,
+    ),
+    Shelter(
+      id: '3',
+      name: 'Society for Protection of Animal Rights in Egypt S.P.A.R.E',
+      address: '8 Sakara Road, Giza, Shabramant, Al-Mansouriya',
+      phone: '0233813855',
+      status: ShelterStatus.closed,
+      rating: 3.5,
+    ),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    setState(() {
+      _loadingLocation = true;
+      _cityName = 'Detecting location…';
+    });
+
+    final position = await LocationService.getLocationWithPermission();
+
+    if (!mounted) return;
+
+    if (position == null) {
+      setState(() {
+        _locationGranted = false;
+        _loadingLocation = false;
+        _cityName = 'Location unavailable';
+      });
+      return;
+    }
+
+    setState(() {
+      _locationGranted = true;
+    });
+
+    final city = await LocationService.getCityName(
+        position.latitude, position.longitude);
+
+    if (!mounted) return;
+    setState(() {
+      _cityName = city;
+      _loadingLocation = false;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
@@ -52,16 +101,25 @@ class SheltersScreen extends StatelessWidget {
             subtitle: 'A safe place full of love 🐾',
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.all(20.w),
-              child: Column(
-                children: [
-                  const _LocationInfoCard(),
-                  SizedBox(height: 20.h),
-                  ...mockShelters
-                      .map((shelter) => _ShelterCard(shelter: shelter)),
-                  SizedBox(height: 100.h),
-                ],
+            child: RefreshIndicator(
+              onRefresh: _fetchLocation,
+              color: AppColors.primaryMagenta,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.all(20.w),
+                child: Column(
+                  children: [
+                    _LocationInfoCard(
+                      cityName: _cityName,
+                      isLoading: _loadingLocation,
+                      isGranted: _locationGranted,
+                      onRetry: _fetchLocation,
+                    ),
+                    SizedBox(height: 20.h),
+                    ..._shelters.map((shelter) => _ShelterCard(shelter: shelter)),
+                    SizedBox(height: 100.h),
+                  ],
+                ),
               ),
             ),
           ),
@@ -71,8 +129,22 @@ class SheltersScreen extends StatelessWidget {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Location info card
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _LocationInfoCard extends StatelessWidget {
-  const _LocationInfoCard();
+  final String cityName;
+  final bool isLoading;
+  final bool isGranted;
+  final VoidCallback onRetry;
+
+  const _LocationInfoCard({
+    required this.cityName,
+    required this.isLoading,
+    required this.isGranted,
+    required this.onRetry,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -81,19 +153,39 @@ class _LocationInfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20.r),
-        border:
-            Border.all(color: Colors.black.withValues(alpha: 0.4), width: 1.5),
+        border: Border.all(
+            color: Colors.black.withValues(alpha: 0.4), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
             padding: EdgeInsets.all(8.w),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: _iconBgColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.green, width: 2),
+              border: Border.all(color: _iconBgColor, width: 2),
             ),
-            child: Icon(Icons.location_on, color: Colors.green, size: 24.w),
+            child: isLoading
+                ? SizedBox(
+                    width: 24.w,
+                    height: 24.w,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.blue,
+                    ),
+                  )
+                : Icon(
+                    isGranted ? Icons.location_on : Icons.location_off,
+                    color: _iconBgColor,
+                    size: 24.w,
+                  ),
           ),
           SizedBox(width: 14.w),
           Expanded(
@@ -101,17 +193,19 @@ class _LocationInfoCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'current location Detected',
+                  isLoading ? 'Detecting location…' : 'Location Detected',
                   style: AppTypography.caption
                       .copyWith(color: AppColors.textSecondary),
                 ),
                 Text(
-                  'cairo , Egypt',
+                  cityName,
                   style: AppTypography.h3.copyWith(fontSize: 18.sp),
                 ),
                 SizedBox(height: 6.h),
                 Text(
-                  'Your location has been automatically detected and shared emergency services',
+                  isGranted
+                      ? 'Your location has been automatically detected and shared with nearby services.'
+                      : 'Location permission denied. Tap retry to enable.',
                   style: AppTypography.caption.copyWith(
                     color: AppColors.textSecondary,
                     fontSize: 12.sp,
@@ -120,11 +214,25 @@ class _LocationInfoCard extends StatelessWidget {
               ],
             ),
           ),
+          if (!isGranted && !isLoading)
+            IconButton(
+              onPressed: onRetry,
+              icon: Icon(Icons.refresh, color: AppColors.primaryMagenta),
+            ),
         ],
       ),
     );
   }
+
+  Color get _iconBgColor {
+    if (isLoading) return Colors.blue;
+    return isGranted ? Colors.green : Colors.red;
+  }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shelter card
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _ShelterCard extends StatelessWidget {
   final Shelter shelter;

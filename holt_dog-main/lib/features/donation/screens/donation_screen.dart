@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:holt_dog/features/donation/screens/add_card_screen.dart';
 import 'package:holt_dog/features/donation/screens/e_wallet_screen.dart';
+import 'package:holt_dog/features/other_pages/payment_processing_page.dart';
 
 class DonationOption {
   final String amount;
@@ -81,7 +82,10 @@ class DonationScreen extends StatelessWidget {
                       child: SizedBox(
                         width: 250,
                         child: ElevatedButton(
-                          onPressed: () {},
+                          onPressed: () {
+                            context.push(
+                                PaymentProcessingScreen.routeName);
+                          },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFE0E0F8),
                             padding: const EdgeInsets.symmetric(vertical: 18),
