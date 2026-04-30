@@ -3,6 +3,27 @@ import 'package:latlong2/latlong.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_map/flutter_map.dart';
 
+enum LocationFailure {
+  serviceDisabled,
+  denied,
+  deniedForever,
+  timeout,
+  unknown,
+}
+
+class LocationResult {
+  final Position? position;
+  final LocationFailure? failure;
+  final String? message;
+
+  const LocationResult.success(this.position)
+      : failure = null,
+        message = null;
+  const LocationResult.error(this.failure, this.message) : position = null;
+
+  bool get ok => position != null;
+}
+
 /// A centralised location helper used by all screens that need GPS access.
 class LocationService {
   LocationService._();
@@ -11,6 +32,14 @@ class LocationService {
   // Permission helpers
   // ──────────────────────────────────────────────────────────────────────────
 
+  static Future<LocationPermission> _ensurePermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    return permission;
+  }
+
   /// Returns `true` when the device has location services enabled **and** the
   /// app has at least "while-in-use" permission.
   static Future<bool> requestPermission() async {
@@ -18,18 +47,20 @@ class LocationService {
       final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) return false;
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.deniedForever) return false;
-
+      final permission = await _ensurePermission();
       return permission == LocationPermission.always ||
           permission == LocationPermission.whileInUse;
     } catch (_) {
       return false;
     }
   }
+
+  /// Opens the OS app-settings page so the user can grant location manually.
+  static Future<bool> openAppSettings() => Geolocator.openAppSettings();
+
+  /// Opens the OS location-services page (turn GPS on).
+  static Future<bool> openLocationSettings() =>
+      Geolocator.openLocationSettings();
 
   // ──────────────────────────────────────────────────────────────────────────
   // Position helpers
@@ -45,7 +76,7 @@ class LocationService {
 
       return await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 8),
+        timeLimit: const Duration(seconds: 12),
       );
     } catch (e) {
       print("Error getting location: $e");
@@ -56,9 +87,55 @@ class LocationService {
   /// Convenience method that checks permission **then** fetches the position.
   /// Returns `null` if permission is denied or GPS is unavailable.
   static Future<Position?> getLocationWithPermission() async {
-    final bool granted = await requestPermission();
-    if (!granted) return null;
-    return getCurrentPosition();
+    final result = await getLocationDetailed();
+    return result.position;
+  }
+
+  /// Same as [getLocationWithPermission] but reports *why* it failed so the
+  /// UI can show a useful message (or open settings).
+  static Future<LocationResult> getLocationDetailed() async {
+    try {
+      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return const LocationResult.error(
+          LocationFailure.serviceDisabled,
+          'Location (GPS) is turned off on this device.',
+        );
+      }
+
+      final permission = await _ensurePermission();
+      if (permission == LocationPermission.deniedForever) {
+        return const LocationResult.error(
+          LocationFailure.deniedForever,
+          'Location permission is permanently denied. Open settings to enable it.',
+        );
+      }
+      if (permission != LocationPermission.always &&
+          permission != LocationPermission.whileInUse) {
+        return const LocationResult.error(
+          LocationFailure.denied,
+          'Location permission denied.',
+        );
+      }
+
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) return LocationResult.success(last);
+
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.medium,
+          timeLimit: const Duration(seconds: 12),
+        );
+        return LocationResult.success(pos);
+      } catch (e) {
+        return LocationResult.error(
+          LocationFailure.timeout,
+          'Could not get a GPS fix. Move near a window and try again.',
+        );
+      }
+    } catch (e) {
+      return LocationResult.error(LocationFailure.unknown, e.toString());
+    }
   }
 
   /// Converts a [Position] to a [LatLng] for use with flutter_map.

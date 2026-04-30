@@ -17,6 +17,8 @@ class VetsScreen extends StatefulWidget {
 
 class _VetsScreenState extends State<VetsScreen> {
   String _cityName = 'Detecting location…';
+  String _locationMessage = '';
+  LocationFailure? _locationFailure;
   bool _locationGranted = false;
   bool _loadingLocation = true;
 
@@ -66,33 +68,48 @@ class _VetsScreenState extends State<VetsScreen> {
     setState(() {
       _loadingLocation = true;
       _cityName = 'Detecting location…';
+      _locationMessage = '';
+      _locationFailure = null;
     });
 
-    final position = await LocationService.getLocationWithPermission();
+    final result = await LocationService.getLocationDetailed();
 
     if (!mounted) return;
 
-    if (position == null) {
+    if (!result.ok) {
       setState(() {
         _locationGranted = false;
         _loadingLocation = false;
         _cityName = 'Location unavailable';
+        _locationFailure = result.failure;
+        _locationMessage = result.message ?? 'Unknown error';
       });
       return;
     }
 
+    final position = result.position!;
     setState(() {
       _locationGranted = true;
     });
 
-    final city =
-        await LocationService.getCityName(position.latitude, position.longitude);
+    final city = await LocationService.getCityName(
+        position.latitude, position.longitude);
 
     if (!mounted) return;
     setState(() {
       _cityName = city;
       _loadingLocation = false;
     });
+  }
+
+  Future<void> _handleLocationAction() async {
+    if (_locationFailure == LocationFailure.deniedForever) {
+      await LocationService.openAppSettings();
+    } else if (_locationFailure == LocationFailure.serviceDisabled) {
+      await LocationService.openLocationSettings();
+    } else {
+      await _fetchLocation();
+    }
   }
 
   @override
@@ -123,7 +140,9 @@ class _VetsScreenState extends State<VetsScreen> {
                       cityName: _cityName,
                       isLoading: _loadingLocation,
                       isGranted: _locationGranted,
-                      onRetry: _fetchLocation,
+                      message: _locationMessage,
+                      failure: _locationFailure,
+                      onRetry: _handleLocationAction,
                     ),
                     SizedBox(height: 20.h),
                     if (_loadingVets)
@@ -179,12 +198,16 @@ class _LocationInfoCard extends StatelessWidget {
   final String cityName;
   final bool isLoading;
   final bool isGranted;
+  final String message;
+  final LocationFailure? failure;
   final VoidCallback onRetry;
 
   const _LocationInfoCard({
     required this.cityName,
     required this.isLoading,
     required this.isGranted,
+    required this.message,
+    required this.failure,
     required this.onRetry,
   });
 
@@ -241,7 +264,9 @@ class _LocationInfoCard extends StatelessWidget {
                 Text(
                   isGranted
                       ? 'Your location has been detected. Showing nearby vets.'
-                      : 'Location permission denied. Tap retry to enable.',
+                      : (message.isNotEmpty
+                          ? message
+                          : 'Location permission denied. Tap retry to enable.'),
                   style: AppTypography.caption
                       .copyWith(color: AppColors.textSecondary),
                 ),
@@ -249,9 +274,19 @@ class _LocationInfoCard extends StatelessWidget {
             ),
           ),
           if (!isGranted && !isLoading)
-            IconButton(
+            TextButton(
               onPressed: onRetry,
-              icon: Icon(Icons.refresh, color: AppColors.primaryMagenta),
+              child: Text(
+                failure == LocationFailure.deniedForever
+                    ? 'Settings'
+                    : failure == LocationFailure.serviceDisabled
+                        ? 'Enable GPS'
+                        : 'Retry',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.primaryMagenta,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
