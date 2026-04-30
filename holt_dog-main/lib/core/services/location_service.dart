@@ -121,20 +121,67 @@ class LocationService {
       final last = await Geolocator.getLastKnownPosition();
       if (last != null) return LocationResult.success(last);
 
+      // Try medium accuracy first
       try {
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 12),
+          timeLimit: const Duration(seconds: 8),
         );
         return LocationResult.success(pos);
-      } catch (e) {
-        return LocationResult.error(
-          LocationFailure.timeout,
-          'Could not get a GPS fix. Move near a window and try again.',
+      } catch (_) {}
+
+      // Fallback 1: low accuracy (uses Wi-Fi / cell towers, no satellite)
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.low,
+          timeLimit: const Duration(seconds: 10),
         );
-      }
+        return LocationResult.success(pos);
+      } catch (_) {}
+
+      // Fallback 2: IP-based geolocation (no GPS at all)
+      final ipPos = await _getPositionFromIp();
+      if (ipPos != null) return LocationResult.success(ipPos);
+
+      return const LocationResult.error(
+        LocationFailure.timeout,
+        'Could not get a GPS fix. Move near a window and try again.',
+      );
     } catch (e) {
       return LocationResult.error(LocationFailure.unknown, e.toString());
+    }
+  }
+
+  /// IP-based geolocation as a last resort. City-level accuracy only.
+  static Future<Position?> _getPositionFromIp() async {
+    try {
+      final dio = Dio();
+      dio.options
+        ..connectTimeout = const Duration(seconds: 6)
+        ..receiveTimeout = const Duration(seconds: 6);
+
+      final response = await dio.get('https://ipapi.co/json/');
+      final data = response.data;
+      if (data is! Map) return null;
+
+      final lat = (data['latitude'] as num?)?.toDouble();
+      final lon = (data['longitude'] as num?)?.toDouble();
+      if (lat == null || lon == null) return null;
+
+      return Position(
+        latitude: lat,
+        longitude: lon,
+        timestamp: DateTime.now(),
+        accuracy: 5000,
+        altitude: 0,
+        altitudeAccuracy: 0,
+        heading: 0,
+        headingAccuracy: 0,
+        speed: 0,
+        speedAccuracy: 0,
+      );
+    } catch (_) {
+      return null;
     }
   }
 
