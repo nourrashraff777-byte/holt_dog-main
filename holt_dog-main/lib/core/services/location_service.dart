@@ -36,11 +36,16 @@ class LocationService {
   // ──────────────────────────────────────────────────────────────────────────
 
   /// Fetches the device's current [Position]. Returns `null` on any failure.
+  /// Tries the cached last-known position first (instant) and falls back to
+  /// a fresh medium-accuracy fix with a short timeout to avoid ANRs.
   static Future<Position?> getCurrentPosition() async {
     try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null) return last;
+
       return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 15),
+        desiredAccuracy: LocationAccuracy.medium,
+        timeLimit: const Duration(seconds: 8),
       );
     } catch (e) {
       print("Error getting location: $e");

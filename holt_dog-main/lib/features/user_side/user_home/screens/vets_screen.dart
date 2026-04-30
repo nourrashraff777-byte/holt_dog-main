@@ -27,8 +27,10 @@ class _VetsScreenState extends State<VetsScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchLocation();
-    _fetchVets();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchLocation();
+      _fetchVets();
+    });
   }
 
   Future<void> _fetchVets() async {
