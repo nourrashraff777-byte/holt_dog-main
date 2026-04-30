@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -19,42 +20,44 @@ class _VetsScreenState extends State<VetsScreen> {
   bool _locationGranted = false;
   bool _loadingLocation = true;
 
-  // ── Mock data (replace with Firestore call when backend is ready) ──────────
-  final List<Vet> _vets = [
-    Vet(
-      id: '1',
-      name: 'GIZA MEDICAL CENTER',
-      address: 'Giza City, Egypt',
-      phone: '0123456789',
-      status: VetStatus.available,
-    ),
-    Vet(
-      id: '2',
-      name: 'VET CLINIC',
-      address: 'NASR ROAD, Giza',
-      phone: '0122334455',
-      status: VetStatus.available,
-    ),
-    Vet(
-      id: '3',
-      name: 'Zayed Vet Clinic',
-      address: '11 Sheikh Zayed, Giza, Egypt',
-      phone: '0111222333',
-      status: VetStatus.closed,
-    ),
-    Vet(
-      id: '4',
-      name: 'Pet Health Center',
-      address: '6th of October City, Giza',
-      phone: '0101010101',
-      status: VetStatus.closed,
-    ),
-  ];
+  List<Vet> _vets = [];
+  bool _loadingVets = true;
+  String? _vetsError;
 
   @override
   void initState() {
     super.initState();
     _fetchLocation();
+    _fetchVets();
+  }
+
+  Future<void> _fetchVets() async {
+    if (!mounted) return;
+    setState(() {
+      _loadingVets = true;
+      _vetsError = null;
+    });
+
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('vets').get();
+
+      final vets = snapshot.docs.map((doc) {
+        return Vet.fromMap(doc.data(), doc.id);
+      }).toList();
+
+      if (!mounted) return;
+      setState(() {
+        _vets = vets;
+        _loadingVets = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _vetsError = 'Failed to load vets: $e';
+        _loadingVets = false;
+      });
+    }
   }
 
   Future<void> _fetchLocation() async {
@@ -105,7 +108,9 @@ class _VetsScreenState extends State<VetsScreen> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _fetchLocation,
+              onRefresh: () async {
+                await Future.wait([_fetchLocation(), _fetchVets()]);
+              },
               color: AppColors.primaryMagenta,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -119,7 +124,39 @@ class _VetsScreenState extends State<VetsScreen> {
                       onRetry: _fetchLocation,
                     ),
                     SizedBox(height: 20.h),
-                    ..._vets.map((vet) => _VetCard(vet: vet)),
+                    if (_loadingVets)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primaryMagenta),
+                        ),
+                      )
+                    else if (_vetsError != null)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Center(
+                          child: Text(
+                            _vetsError!,
+                            style: AppTypography.caption
+                                .copyWith(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else if (_vets.isEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Center(
+                          child: Text(
+                            'No vets found.',
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textSecondary),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._vets.map((vet) => _VetCard(vet: vet)),
                     SizedBox(height: 100.h),
                   ],
                 ),
