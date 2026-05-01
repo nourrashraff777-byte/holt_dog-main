@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:geolocator/geolocator.dart';
@@ -69,21 +70,10 @@ class LocationService {
   // ──────────────────────────────────────────────────────────────────────────
 
   /// Fetches the device's current [Position]. Returns `null` on any failure.
-  /// Tries the cached last-known position first (instant) and falls back to
-  /// a fresh medium-accuracy fix with a short timeout to avoid ANRs.
+  /// Internally goes through the same robust path as [getLocationDetailed].
   static Future<Position?> getCurrentPosition() async {
-    try {
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null) return last;
-
-      return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-        timeLimit: const Duration(seconds: 12),
-      );
-    } catch (e) {
-      print("Error getting location: $e");
-      return null;
-    }
+    final result = await getLocationDetailed();
+    return result.position;
   }
 
   /// Convenience method that checks permission **then** fetches the position.
@@ -120,36 +110,57 @@ class LocationService {
         );
       }
 
-      // Always prefer a fresh GPS fix. Try high accuracy first — it picks the
-      // best available source (GPS satellites + Wi-Fi + cell). Generous
-      // 25-second window so an outdoor cold start has time to lock.
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 25),
-        );
-        return LocationResult.success(pos);
-      } catch (_) {}
-
-      // Fallback 1: medium accuracy (network-only, faster).
-      try {
-        final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 12),
-        );
-        return LocationResult.success(pos);
-      } catch (_) {}
-
-      // Fallback 2: cached last-known position, but only if recent (< 10 min).
-      // Stale cached fixes are the main reason "wrong city" shows up.
+      // 1. Try a recent cached fix first (instant, doesn't crash).
       try {
         final last = await Geolocator.getLastKnownPosition();
-        if (last != null && last.timestamp != null) {
-          final age = DateTime.now().difference(last.timestamp!);
+        if (last != null) {
+          final age = DateTime.now().difference(last.timestamp);
           if (age.inMinutes < 10) {
             return LocationResult.success(last);
           }
         }
+      } catch (_) {}
+
+      // 2. Request a fresh fix using the modern LocationSettings API.
+      //    `desiredAccuracy` is deprecated in geolocator 11+; passing it on
+      //    some Android builds throws a native exception that takes the app
+      //    down. Use LocationSettings instead.
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 15),
+          ),
+        );
+        return LocationResult.success(pos);
+      } on TimeoutException catch (_) {
+      } on LocationServiceDisabledException catch (_) {
+        return const LocationResult.error(
+          LocationFailure.serviceDisabled,
+          'Location (GPS) is turned off on this device.',
+        );
+      } on PermissionDeniedException catch (_) {
+        return const LocationResult.error(
+          LocationFailure.denied,
+          'Location permission denied.',
+        );
+      } catch (_) {}
+
+      // 3. Lower-accuracy fallback (network/cell tower, no satellite).
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.low,
+            timeLimit: Duration(seconds: 12),
+          ),
+        );
+        return LocationResult.success(pos);
+      } catch (_) {}
+
+      // 4. Last resort: any cached fix, even older.
+      try {
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) return LocationResult.success(last);
       } catch (_) {}
 
       return const LocationResult.error(
@@ -158,39 +169,6 @@ class LocationService {
       );
     } catch (e) {
       return LocationResult.error(LocationFailure.unknown, e.toString());
-    }
-  }
-
-  /// IP-based geolocation as a last resort. City-level accuracy only.
-  static Future<Position?> _getPositionFromIp() async {
-    try {
-      final dio = Dio();
-      dio.options
-        ..connectTimeout = const Duration(seconds: 6)
-        ..receiveTimeout = const Duration(seconds: 6);
-
-      final response = await dio.get('https://ipapi.co/json/');
-      final data = response.data;
-      if (data is! Map) return null;
-
-      final lat = (data['latitude'] as num?)?.toDouble();
-      final lon = (data['longitude'] as num?)?.toDouble();
-      if (lat == null || lon == null) return null;
-
-      return Position(
-        latitude: lat,
-        longitude: lon,
-        timestamp: DateTime.now(),
-        accuracy: 5000,
-        altitude: 0,
-        altitudeAccuracy: 0,
-        heading: 0,
-        headingAccuracy: 0,
-        speed: 0,
-        speedAccuracy: 0,
-      );
-    } catch (_) {
-      return null;
     }
   }
 
