@@ -67,6 +67,16 @@ class _MapScreenState extends State<MapScreen> {
   NearbyProvider? _selectedProvider;
   final List<String> _filters = ['All', 'Vets', 'Shelters'];
 
+  // Search
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   static const LatLng _defaultCity = LatLng(30.0444, 31.2357); // Cairo
   static const double _defaultZoom = 13;
 
@@ -135,52 +145,46 @@ class _MapScreenState extends State<MapScreen> {
     try {
       final db = FirebaseFirestore.instance;
 
-      // Query both DOCTOR (vet) and CHARITY (shelter) roles in parallel
       final results = await Future.wait([
-        db.collection('users').where('role', isEqualTo: 'DOCTOR').get(),
-        db.collection('users').where('role', isEqualTo: 'CHARITY').get(),
+        db.collection('vets').get(),
+        db.collection('shelters').get(),
       ]);
 
       final List<NearbyProvider> found = [];
 
-      for (final snapshot in results) {
+      for (int i = 0; i < results.length; i++) {
+        final snapshot = results[i];
+        final type = i == 0 ? ProviderType.vet : ProviderType.shelter;
+
         for (final doc in snapshot.docs) {
           final data = doc.data();
           double? lat, lon;
 
-          // Support both flat lat/lng fields and GeoPoint 'location' field
-          if (data.containsKey('lat') && data['lat'] != null) {
-            lat = double.tryParse(data['lat'].toString());
-            lon = double.tryParse(data['lng']?.toString() ?? '');
-          } else if (data['location'] is GeoPoint) {
+          if (data['location'] is GeoPoint) {
             final gp = data['location'] as GeoPoint;
             lat = gp.latitude;
             lon = gp.longitude;
+          } else {
+            lat = LocationService.parseCoord(data['lat']);
+            lon = LocationService.parseCoord(data['lng']);
           }
 
           if (lat == null || lon == null) continue;
 
           final dist = _haversineKm(userLat, userLon, lat, lon);
-          if (dist > 50) continue; // 50 km radius
 
-          final role = data['role']?.toString() ?? '';
           found.add(NearbyProvider(
             id: doc.id,
             name: data['name']?.toString() ?? 'Unknown',
-            address: data['address']?.toString() ??
-                data['extraData']?['clinicAddress']?.toString() ??
-                '',
-            phone: data['phone']?.toString() ??
-                data['extraData']?['phone']?.toString() ??
-                '',
-            type: role == 'DOCTOR' ? ProviderType.vet : ProviderType.shelter,
+            address: data['address']?.toString() ?? '',
+            phone: data['phone']?.toString() ?? '',
+            type: type,
             position: LatLng(lat, lon),
             distanceKm: dist,
           ));
         }
       }
 
-      // Sort nearest-first
       found.sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
 
       if (!mounted) return;
@@ -209,12 +213,23 @@ class _MapScreenState extends State<MapScreen> {
   // ── Filtered list ───────────────────────────────────────────────────────────
 
   List<NearbyProvider> get _filtered {
+    Iterable<NearbyProvider> list = _providers;
+
     if (_selectedFilter == 1) {
-      return _providers.where((p) => p.type == ProviderType.vet).toList();
+      list = list.where((p) => p.type == ProviderType.vet);
     } else if (_selectedFilter == 2) {
-      return _providers.where((p) => p.type == ProviderType.shelter).toList();
+      list = list.where((p) => p.type == ProviderType.shelter);
     }
-    return _providers;
+
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list.where((p) =>
+          p.name.toLowerCase().contains(q) ||
+          p.address.toLowerCase().contains(q) ||
+          p.phone.toLowerCase().contains(q));
+    }
+
+    return list.toList();
   }
 
   // ── Build ───────────────────────────────────────────────────────────────────
@@ -578,11 +593,30 @@ class _MapScreenState extends State<MapScreen> {
         boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10)],
       ),
       child: TextField(
+        controller: _searchController,
+        textInputAction: TextInputAction.search,
+        onChanged: (value) {
+          setState(() {
+            _searchQuery = value;
+            _selectedProvider = null;
+          });
+        },
         decoration: InputDecoration(
           icon: const Icon(Icons.search, color: Colors.grey),
-          hintText: 'Search Here',
+          hintText: 'Search by name, address, or phone',
           hintStyle: AppTypography.bodySmall,
           border: InputBorder.none,
+          suffixIcon: _searchQuery.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close, color: Colors.grey),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() {
+                      _searchQuery = '';
+                    });
+                  },
+                ),
         ),
       ),
     );
@@ -735,9 +769,11 @@ class _MapScreenState extends State<MapScreen> {
                   padding: EdgeInsets.symmetric(vertical: 20.h),
                   child: Center(
                     child: Text(
-                      _hasLocationPermission
-                          ? 'No ${_selectedFilter == 1 ? 'vets' : _selectedFilter == 2 ? 'shelters' : 'providers'} found nearby.'
-                          : 'Enable location to find nearby places.',
+                      _searchQuery.isNotEmpty
+                          ? 'No matches for "$_searchQuery".'
+                          : (_hasLocationPermission
+                              ? 'No ${_selectedFilter == 1 ? 'vets' : _selectedFilter == 2 ? 'shelters' : 'providers'} found nearby.'
+                              : 'Enable location to find nearby places.'),
                       style: AppTypography.caption.copyWith(
                           color: AppColors.textSecondary),
                     ),

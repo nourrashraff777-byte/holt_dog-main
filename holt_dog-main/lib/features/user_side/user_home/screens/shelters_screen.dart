@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -16,66 +17,86 @@ class SheltersScreen extends StatefulWidget {
 
 class _SheltersScreenState extends State<SheltersScreen> {
   String _cityName = 'Detecting location…';
+  String _locationMessage = '';
+  LocationFailure? _locationFailure;
   bool _locationGranted = false;
   bool _loadingLocation = true;
+  double? _userLat;
+  double? _userLng;
 
-  // ── Mock data (replace with Firestore call when backend is ready) ──────────
-  final List<Shelter> _shelters = [
-    Shelter(
-      id: '1',
-      name: 'Mira Gamal Shelter',
-      address:
-          'B6 رئيس مجلس المعادي، قسم مصر الجديدة، محافظة القاهرة 4460231',
-      phone: '01147572385',
-      status: ShelterStatus.available,
-      rating: 4.5,
-    ),
-    Shelter(
-      id: '2',
-      name: 'Animal Protection Foundation Shelter - APF',
-      address: 'المعادي، أبو النمرس، محافظة الجيزة 3361113',
-      phone: '01221104994',
-      status: ShelterStatus.available,
-      rating: 4.0,
-    ),
-    Shelter(
-      id: '3',
-      name: 'Society for Protection of Animal Rights in Egypt S.P.A.R.E',
-      address: '8 Sakara Road, Giza, Shabramant, Al-Mansouriya',
-      phone: '0233813855',
-      status: ShelterStatus.closed,
-      rating: 3.5,
-    ),
-  ];
+  List<Shelter> _shelters = [];
+  bool _loadingShelters = true;
+  String? _sheltersError;
 
   @override
   void initState() {
     super.initState();
-    _fetchLocation();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchLocation();
+      _fetchShelters();
+    });
+  }
+
+  Future<void> _fetchShelters() async {
+    if (!mounted) return;
+    setState(() {
+      _loadingShelters = true;
+      _sheltersError = null;
+    });
+
+    try {
+      final snapshot =
+          await FirebaseFirestore.instance.collection('shelters').get();
+
+      final shelters = snapshot.docs
+          .map((doc) => Shelter.fromMap(doc.data(), doc.id))
+          .toList();
+
+      if (!mounted) return;
+      setState(() {
+        _shelters = shelters;
+        _loadingShelters = false;
+      });
+      _sortByDistance();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sheltersError = 'Failed to load shelters: $e';
+        _loadingShelters = false;
+      });
+    }
   }
 
   Future<void> _fetchLocation() async {
     setState(() {
       _loadingLocation = true;
       _cityName = 'Detecting location…';
+      _locationMessage = '';
+      _locationFailure = null;
     });
 
-    final position = await LocationService.getLocationWithPermission();
+    final result = await LocationService.getLocationDetailed();
 
     if (!mounted) return;
 
-    if (position == null) {
+    if (!result.ok) {
       setState(() {
         _locationGranted = false;
         _loadingLocation = false;
         _cityName = 'Location unavailable';
+        _locationFailure = result.failure;
+        _locationMessage = result.message ?? 'Unknown error';
       });
       return;
     }
 
+    final position = result.position!;
     setState(() {
       _locationGranted = true;
+      _userLat = position.latitude;
+      _userLng = position.longitude;
     });
+    _sortByDistance();
 
     final city = await LocationService.getCityName(
         position.latitude, position.longitude);
@@ -85,6 +106,34 @@ class _SheltersScreenState extends State<SheltersScreen> {
       _cityName = city;
       _loadingLocation = false;
     });
+  }
+
+  Future<void> _handleLocationAction() async {
+    if (_locationFailure == LocationFailure.deniedForever) {
+      await LocationService.openAppSettings();
+    } else if (_locationFailure == LocationFailure.serviceDisabled) {
+      await LocationService.openLocationSettings();
+    } else {
+      await _fetchLocation();
+    }
+  }
+
+  void _sortByDistance() {
+    if (_userLat == null || _userLng == null || _shelters.isEmpty) return;
+    for (final s in _shelters) {
+      if (s.lat != null && s.lng != null) {
+        s.distanceKm = LocationService.distanceKm(
+            _userLat!, _userLng!, s.lat!, s.lng!);
+      } else {
+        s.distanceKm = null;
+      }
+    }
+    _shelters.sort((a, b) {
+      final da = a.distanceKm ?? double.infinity;
+      final db = b.distanceKm ?? double.infinity;
+      return da.compareTo(db);
+    });
+    if (mounted) setState(() {});
   }
 
   @override
@@ -102,7 +151,9 @@ class _SheltersScreenState extends State<SheltersScreen> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: _fetchLocation,
+              onRefresh: () async {
+                await Future.wait([_fetchLocation(), _fetchShelters()]);
+              },
               color: AppColors.primaryMagenta,
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -113,10 +164,45 @@ class _SheltersScreenState extends State<SheltersScreen> {
                       cityName: _cityName,
                       isLoading: _loadingLocation,
                       isGranted: _locationGranted,
-                      onRetry: _fetchLocation,
+                      message: _locationMessage,
+                      failure: _locationFailure,
+                      onRetry: _handleLocationAction,
                     ),
                     SizedBox(height: 20.h),
-                    ..._shelters.map((shelter) => _ShelterCard(shelter: shelter)),
+                    if (_loadingShelters)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Center(
+                          child: CircularProgressIndicator(
+                              color: AppColors.primaryMagenta),
+                        ),
+                      )
+                    else if (_sheltersError != null)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Center(
+                          child: Text(
+                            _sheltersError!,
+                            style: AppTypography.caption
+                                .copyWith(color: Colors.red),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else if (_shelters.isEmpty)
+                      Padding(
+                        padding: EdgeInsets.symmetric(vertical: 40.h),
+                        child: Center(
+                          child: Text(
+                            'No shelters found.',
+                            style: AppTypography.caption
+                                .copyWith(color: AppColors.textSecondary),
+                          ),
+                        ),
+                      )
+                    else
+                      ..._shelters
+                          .map((shelter) => _ShelterCard(shelter: shelter)),
                     SizedBox(height: 100.h),
                   ],
                 ),
@@ -137,12 +223,16 @@ class _LocationInfoCard extends StatelessWidget {
   final String cityName;
   final bool isLoading;
   final bool isGranted;
+  final String message;
+  final LocationFailure? failure;
   final VoidCallback onRetry;
 
   const _LocationInfoCard({
     required this.cityName,
     required this.isLoading,
     required this.isGranted,
+    required this.message,
+    required this.failure,
     required this.onRetry,
   });
 
@@ -205,7 +295,9 @@ class _LocationInfoCard extends StatelessWidget {
                 Text(
                   isGranted
                       ? 'Your location has been automatically detected and shared with nearby services.'
-                      : 'Location permission denied. Tap retry to enable.',
+                      : (message.isNotEmpty
+                          ? message
+                          : 'Location permission denied. Tap retry to enable.'),
                   style: AppTypography.caption.copyWith(
                     color: AppColors.textSecondary,
                     fontSize: 12.sp,
@@ -215,9 +307,19 @@ class _LocationInfoCard extends StatelessWidget {
             ),
           ),
           if (!isGranted && !isLoading)
-            IconButton(
+            TextButton(
               onPressed: onRetry,
-              icon: Icon(Icons.refresh, color: AppColors.primaryMagenta),
+              child: Text(
+                failure == LocationFailure.deniedForever
+                    ? 'Settings'
+                    : failure == LocationFailure.serviceDisabled
+                        ? 'Enable GPS'
+                        : 'Retry',
+                style: AppTypography.bodySmall.copyWith(
+                  color: AppColors.primaryMagenta,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
@@ -303,6 +405,19 @@ class _ShelterCard extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
+                    if (shelter.distanceKm != null) ...[
+                      SizedBox(width: 12.w),
+                      Icon(Icons.near_me,
+                          color: AppColors.primaryMagenta, size: 14.w),
+                      SizedBox(width: 4.w),
+                      Text(
+                        '${shelter.distanceKm!.toStringAsFixed(1)} km',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.primaryMagenta,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 SizedBox(height: 10.h),

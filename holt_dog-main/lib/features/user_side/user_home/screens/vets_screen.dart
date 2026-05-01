@@ -21,6 +21,8 @@ class _VetsScreenState extends State<VetsScreen> {
   LocationFailure? _locationFailure;
   bool _locationGranted = false;
   bool _loadingLocation = true;
+  double? _userLat;
+  double? _userLng;
 
   List<Vet> _vets = [];
   bool _loadingVets = true;
@@ -55,6 +57,7 @@ class _VetsScreenState extends State<VetsScreen> {
         _vets = vets;
         _loadingVets = false;
       });
+      _sortByDistance();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -90,7 +93,10 @@ class _VetsScreenState extends State<VetsScreen> {
     final position = result.position!;
     setState(() {
       _locationGranted = true;
+      _userLat = position.latitude;
+      _userLng = position.longitude;
     });
+    _sortByDistance();
 
     final city = await LocationService.getCityName(
         position.latitude, position.longitude);
@@ -100,6 +106,24 @@ class _VetsScreenState extends State<VetsScreen> {
       _cityName = city;
       _loadingLocation = false;
     });
+  }
+
+  void _sortByDistance() {
+    if (_userLat == null || _userLng == null || _vets.isEmpty) return;
+    for (final v in _vets) {
+      if (v.lat != null && v.lng != null) {
+        v.distanceKm = LocationService.distanceKm(
+            _userLat!, _userLng!, v.lat!, v.lng!);
+      } else {
+        v.distanceKm = null;
+      }
+    }
+    _vets.sort((a, b) {
+      final da = a.distanceKm ?? double.infinity;
+      final db = b.distanceKm ?? double.infinity;
+      return da.compareTo(db);
+    });
+    if (mounted) setState(() {});
   }
 
   Future<void> _handleLocationAction() async {
@@ -340,7 +364,14 @@ class _VetCard extends StatelessWidget {
                   children: [
                     Icon(Icons.room, color: AppColors.textHint, size: 14.w),
                     SizedBox(width: 4.w),
-                    Text(vet.address, style: AppTypography.caption),
+                    Expanded(
+                      child: Text(
+                        vet.address,
+                        style: AppTypography.caption,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                   ],
                 ),
                 SizedBox(height: 4.h),
@@ -356,6 +387,19 @@ class _VetCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (vet.distanceKm != null) ...[
+                      SizedBox(width: 10.w),
+                      Icon(Icons.near_me,
+                          color: AppColors.primaryMagenta, size: 14.w),
+                      SizedBox(width: 4.w),
+                      Text(
+                        '${vet.distanceKm!.toStringAsFixed(1)} km',
+                        style: AppTypography.caption.copyWith(
+                          color: AppColors.primaryMagenta,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 SizedBox(height: 8.h),

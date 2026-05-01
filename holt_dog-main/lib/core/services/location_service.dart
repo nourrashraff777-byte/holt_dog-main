@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:dio/dio.dart';
@@ -240,4 +242,24 @@ class LocationService {
 
   static String _coordsFallback(double lat, double lng) =>
       '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
+
+  /// Great-circle distance between two coordinates in kilometres.
+  static double distanceKm(
+      double lat1, double lon1, double lat2, double lon2) {
+    const p = math.pi / 180;
+    final a = 0.5 -
+        math.cos((lat2 - lat1) * p) / 2 +
+        math.cos(lat1 * p) *
+            math.cos(lat2 * p) *
+            (1 - math.cos((lon2 - lon1) * p)) /
+            2;
+    return 12742 * math.asin(math.sqrt(a));
+  }
+
+  /// Parses a coordinate value that may be stored as a number or a string.
+  static double? parseCoord(dynamic value) {
+    if (value == null) return null;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString());
+  }
 }
