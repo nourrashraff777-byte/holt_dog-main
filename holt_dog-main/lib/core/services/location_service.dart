@@ -120,34 +120,41 @@ class LocationService {
         );
       }
 
-      final last = await Geolocator.getLastKnownPosition();
-      if (last != null) return LocationResult.success(last);
+      // Always prefer a fresh GPS fix. Try high accuracy first — it picks the
+      // best available source (GPS satellites + Wi-Fi + cell). Generous
+      // 25-second window so an outdoor cold start has time to lock.
+      try {
+        final pos = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 25),
+        );
+        return LocationResult.success(pos);
+      } catch (_) {}
 
-      // Try medium accuracy first
+      // Fallback 1: medium accuracy (network-only, faster).
       try {
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.medium,
-          timeLimit: const Duration(seconds: 8),
+          timeLimit: const Duration(seconds: 12),
         );
         return LocationResult.success(pos);
       } catch (_) {}
 
-      // Fallback 1: low accuracy (uses Wi-Fi / cell towers, no satellite)
+      // Fallback 2: cached last-known position, but only if recent (< 10 min).
+      // Stale cached fixes are the main reason "wrong city" shows up.
       try {
-        final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.low,
-          timeLimit: const Duration(seconds: 10),
-        );
-        return LocationResult.success(pos);
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null && last.timestamp != null) {
+          final age = DateTime.now().difference(last.timestamp!);
+          if (age.inMinutes < 10) {
+            return LocationResult.success(last);
+          }
+        }
       } catch (_) {}
-
-      // Fallback 2: IP-based geolocation (no GPS at all)
-      final ipPos = await _getPositionFromIp();
-      if (ipPos != null) return LocationResult.success(ipPos);
 
       return const LocationResult.error(
         LocationFailure.timeout,
-        'Could not get a GPS fix. Move near a window and try again.',
+        'Could not get a GPS fix. Make sure you are outdoors or near a window, then tap Retry.',
       );
     } catch (e) {
       return LocationResult.error(LocationFailure.unknown, e.toString());
