@@ -124,10 +124,8 @@ class LocationService {
       // 2. Request a fresh fix.  geolocator 12 uses the old API.
       try {
         final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 15),
-          ),
+          desiredAccuracy: LocationAccuracy.high,
+          timeLimit: const Duration(seconds: 15),
         );
         return LocationResult.success(pos);
       } on TimeoutException catch (_) {
@@ -146,10 +144,8 @@ class LocationService {
       // 3. Lower-accuracy fallback (network/cell tower, no satellite).
       try {
         final pos = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.low,
-            timeLimit: Duration(seconds: 12),
-          ),
+          desiredAccuracy: LocationAccuracy.low,
+          timeLimit: const Duration(seconds: 12),
         );
         return LocationResult.success(pos);
       } catch (_) {}
