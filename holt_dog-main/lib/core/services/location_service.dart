@@ -121,10 +121,7 @@ class LocationService {
         }
       } catch (_) {}
 
-      // 2. Request a fresh fix using the modern LocationSettings API.
-      //    `desiredAccuracy` is deprecated in geolocator 11+; passing it on
-      //    some Android builds throws a native exception that takes the app
-      //    down. Use LocationSettings instead.
+      // 2. Request a fresh fix.  geolocator 12 uses the old API.
       try {
         final pos = await Geolocator.getCurrentPosition(
           locationSettings: const LocationSettings(
