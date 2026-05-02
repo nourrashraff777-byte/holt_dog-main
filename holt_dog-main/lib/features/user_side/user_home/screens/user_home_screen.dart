@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
@@ -54,35 +56,6 @@ class _HomeBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Mock Data for UI testing during development
-    final List<Report> mockReports = [
-      Report(
-        id: '1',
-        title: 'Recovered after treatment',
-        location: 'Maadi',
-        date: '1 day ago',
-        imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1',
-        status: ReportStatus.solved,
-      ),
-      Report(
-        id: '2',
-        title: 'Injured leg, needs urgent care',
-        location: 'Maadi',
-        date: '2 hours ago',
-        imageUrl: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b',
-        status: ReportStatus.missing,
-      ),
-      Report(
-        id: '3',
-        title: 'Weak puppy, not eating well',
-        location: 'Giza',
-        date: '4 days ago',
-        imageUrl:
-            'https://images.unsplash.com/photo-1583337130417-3346a1be7dee',
-        status: ReportStatus.pending,
-      ),
-    ];
-
     return SingleChildScrollView(
       child: Column(
         children: [
@@ -148,9 +121,11 @@ class _HomeBody extends StatelessWidget {
                   ],
                 ),
                 SizedBox(height: 24.h),
-                ...mockReports.map((report) => ReportCard(report: report)),
+                const _RecentReportsList(),
                 SizedBox(height: 16.h),
-                ViewAllButton(onTap: () {}),
+                ViewAllButton(
+                  onTap: () => context.push(MyReportScreen.routeName),
+                ),
                 SizedBox(height: 32.h),
                 const QuoteBanner(),
                 SizedBox(height: 140.h),
@@ -160,5 +135,145 @@ class _HomeBody extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _RecentReportsList extends StatelessWidget {
+  const _RecentReportsList();
+
+  @override
+  Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.h),
+        child: Text(
+          'Sign in to see your reports.',
+          style: AppTypography.bodySmall,
+        ),
+      );
+    }
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('scans')
+          .where('userId', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 24.h),
+            child: const Center(child: CircularProgressIndicator()),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.h),
+            child: Text(
+              'Error: ${snapshot.error}',
+              style: AppTypography.bodySmall.copyWith(color: Colors.red),
+            ),
+          );
+        }
+
+        final docs = [...?snapshot.data?.docs];
+        if (docs.isEmpty) {
+          return Padding(
+            padding: EdgeInsets.symmetric(vertical: 16.h),
+            child: Text(
+              'No reports yet. Run a scan to add one.',
+              style: AppTypography.bodySmall,
+            ),
+          );
+        }
+
+        // Sort newest first in Dart so we don't need a composite index.
+        docs.sort((a, b) {
+          final ta = (a.data() as Map<String, dynamic>)['timestamp']
+              as Timestamp?;
+          final tb = (b.data() as Map<String, dynamic>)['timestamp']
+              as Timestamp?;
+          if (ta == null && tb == null) return 0;
+          if (ta == null) return 1;
+          if (tb == null) return -1;
+          return tb.compareTo(ta);
+        });
+
+        final recent = docs.take(3).map((doc) {
+          return _scanDocToReport(doc.id, doc.data() as Map<String, dynamic>);
+        }).toList();
+
+        return Column(
+          children: recent.map((r) => ReportCard(report: r)).toList(),
+        );
+      },
+    );
+  }
+
+  static Report _scanDocToReport(String id, Map<String, dynamic> data) {
+    final analysis = (data['analysis'] is Map)
+        ? Map<String, dynamic>.from(data['analysis'] as Map)
+        : const <String, dynamic>{};
+    final disease = (analysis['disease'] as String?) ?? '';
+    final mood = (analysis['mood'] as String?) ?? '';
+    final isDog = analysis['isDog'] == true;
+
+    String title;
+    if (isDog && disease.isNotEmpty && mood.isNotEmpty) {
+      title = '$disease · $mood';
+    } else if (isDog && disease.isNotEmpty) {
+      title = disease;
+    } else {
+      title = 'Dog scan';
+    }
+
+    final address = (data['address'] as String?) ?? '';
+    final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
+    final dateText = _relativeDate(timestamp);
+
+    final statusRaw = (data['status'] as String?) ?? 'pending';
+    final status = _statusFromString(statusRaw);
+
+    return Report(
+      id: id,
+      title: title,
+      location: address.isEmpty ? 'Unknown location' : address,
+      date: dateText,
+      imageUrl: (data['imageUrl'] as String?) ?? '',
+      status: status,
+    );
+  }
+
+  static ReportStatus _statusFromString(String raw) {
+    switch (raw.toLowerCase()) {
+      case 'solved':
+      case 'rescued':
+        return ReportStatus.solved;
+      case 'pending':
+      case 'undercare':
+        return ReportStatus.pending;
+      case 'need help':
+      case 'needs help':
+      case 'missing':
+      default:
+        return ReportStatus.missing;
+    }
+  }
+
+  static String _relativeDate(DateTime? d) {
+    if (d == null) return '—';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return '$h hour${h == 1 ? '' : 's'} ago';
+    }
+    if (diff.inDays < 7) {
+      final dy = diff.inDays;
+      return '$dy day${dy == 1 ? '' : 's'} ago';
+    }
+    final w = (diff.inDays / 7).floor();
+    return '$w week${w == 1 ? '' : 's'} ago';
   }
 }

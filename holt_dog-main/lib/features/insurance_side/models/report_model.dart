@@ -63,24 +63,63 @@ class Report {
   }
 
   factory Report.fromMap(Map<String, dynamic> map, String docId) {
+    // Pull the AI analysis block (scans schema).
+    final analysis = (map['analysis'] is Map)
+        ? Map<String, dynamic>.from(map['analysis'] as Map)
+        : const <String, dynamic>{};
+
+    // Location: prefer the human-readable `address` string; fall back to
+    // the GeoPoint coords; final fallback to a legacy `location` string.
+    String locationStr = '';
+    final address = map['address'];
+    if (address is String && address.isNotEmpty) {
+      locationStr = address;
+    } else if (map['location'] is GeoPoint) {
+      final gp = map['location'] as GeoPoint;
+      locationStr =
+          '${gp.latitude.toStringAsFixed(4)}, ${gp.longitude.toStringAsFixed(4)}';
+    } else if (map['location'] is String) {
+      locationStr = map['location'] as String;
+    }
+
     return Report(
       id: docId,
-      title: map['title'] ?? '',
-      location: map['location'] ?? '',
-      date: map['date'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      reporterId: map['reporterId'] ?? '',
+      title: map['title']?.toString() ?? '',
+      location: locationStr,
+      date: map['date']?.toString() ?? '',
+      imageUrl: map['imageUrl']?.toString() ?? '',
+      reporterId: (map['userId'] ?? map['reporterId'])?.toString() ?? '',
       timestamp: (map['timestamp'] as Timestamp?)?.toDate(),
-      predictedMood: map['predictedMood'] ?? '',
-      predictedDisease: map['predictedDisease'] ?? '',
-      diseaseConfidence: (map['diseaseConfidence'] as num?)?.toInt() ?? 0,
-      uploaderName: map['uploaderName'] ?? '',
-      uploaderEmail: map['uploaderEmail'] ?? '',
-      status: ReportStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => ReportStatus.pending,
-      ),
+      predictedMood:
+          (analysis['mood'] ?? map['predictedMood'])?.toString() ?? '',
+      predictedDisease:
+          (analysis['disease'] ?? map['predictedDisease'])?.toString() ?? '',
+      diseaseConfidence: ((analysis['diseaseConfidence'] ??
+                  analysis['confidence'] ??
+                  map['diseaseConfidence']) as num?)
+              ?.toInt() ??
+          0,
+      uploaderName: map['uploaderName']?.toString() ?? '',
+      uploaderEmail: map['uploaderEmail']?.toString() ?? '',
+      status: _statusFromRaw(map['status']?.toString() ?? ''),
     );
+  }
+
+  static ReportStatus _statusFromRaw(String raw) {
+    switch (raw.toLowerCase().trim()) {
+      case 'solved':
+      case 'rescued':
+        return ReportStatus.solved;
+      case 'pending':
+      case 'undercare':
+        return ReportStatus.pending;
+      case 'missing':
+      case 'need help':
+      case 'needs help':
+        return ReportStatus.missing;
+      default:
+        return ReportStatus.pending;
+    }
   }
 
   factory Report.fromFirestore(DocumentSnapshot doc) {

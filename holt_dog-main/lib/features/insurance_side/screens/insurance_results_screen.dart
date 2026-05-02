@@ -15,7 +15,7 @@ class InsuranceResultsScreen extends StatelessWidget {
       backgroundColor: const Color(0xFFF5F5F5),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
-            .collection('reports')
+            .collection('scans')
             .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -284,9 +284,26 @@ class _StatusButtons extends StatelessWidget {
   const _StatusButtons({required this.docId, required this.current});
 
   Future<void> _set(String s) => FirebaseFirestore.instance
-      .collection('reports')
+      .collection('scans')
       .doc(docId)
       .update({'status': s});
+
+  String _canonical(String s) {
+    switch (s.toLowerCase().trim()) {
+      case 'solved':
+      case 'rescued':
+        return 'solved';
+      case 'pending':
+      case 'undercare':
+        return 'pending';
+      case 'missing':
+      case 'need help':
+      case 'needs help':
+        return 'missing';
+      default:
+        return s.toLowerCase();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -295,11 +312,12 @@ class _StatusButtons extends StatelessWidget {
       ('pending', 'Undercare', Color(0xFFE65100)),
       ('solved', 'Rescued', Color(0xFF2E7D32)),
     ];
+    final canonicalCurrent = _canonical(current);
     return Wrap(
       spacing: 8,
       runSpacing: 6,
       children: opts.map(((String, String, Color) o) {
-        final active = current.toLowerCase() == o.$1;
+        final active = canonicalCurrent == o.$1;
         return GestureDetector(
           onTap: active ? null : () => _set(o.$1),
           child: AnimatedContainer(

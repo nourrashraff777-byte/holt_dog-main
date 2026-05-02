@@ -18,7 +18,7 @@ class ResultsScreen extends StatelessWidget {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('reports')
+                  .collection('scans')
                   .orderBy('timestamp', descending: true)
                   .snapshots(),
               builder: (context, snapshot) {
@@ -94,7 +94,7 @@ class ResultsScreen extends StatelessWidget {
           ),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('reports')
+                .collection('scans')
                 .snapshots(),
             builder: (_, snap) {
               final count = snap.data?.docs.length ?? 0;
@@ -148,8 +148,25 @@ class _ResultCard extends StatelessWidget {
   final String docId;
   const _ResultCard({required this.data, required this.docId});
 
+  String _canonicalStatus(String s) {
+    switch (s.toLowerCase().trim()) {
+      case 'solved':
+      case 'rescued':
+        return 'solved';
+      case 'pending':
+      case 'undercare':
+        return 'pending';
+      case 'missing':
+      case 'need help':
+      case 'needs help':
+        return 'missing';
+      default:
+        return s.toLowerCase();
+    }
+  }
+
   Color _statusColor(String s) {
-    switch (s.toLowerCase()) {
+    switch (_canonicalStatus(s)) {
       case 'solved':
         return const Color(0xFF2E7D32);
       case 'pending':
@@ -160,7 +177,7 @@ class _ResultCard extends StatelessWidget {
   }
 
   String _statusLabel(String s) {
-    switch (s.toLowerCase()) {
+    switch (_canonicalStatus(s)) {
       case 'solved':
         return 'Rescued';
       case 'pending':
@@ -175,11 +192,30 @@ class _ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final status = (data['status'] as String?) ?? 'pending';
-    final location = (data['location'] as String?) ?? '';
-    final mood = (data['predictedMood'] as String?) ?? '';
-    final disease = (data['predictedDisease'] as String?) ?? '';
-    final conf = (data['diseaseConfidence'] as num?)?.toInt() ?? 0;
+    final status = (data['status'] as String?) ?? 'Need Help';
+
+    final analysis = (data['analysis'] is Map)
+        ? Map<String, dynamic>.from(data['analysis'] as Map)
+        : const <String, dynamic>{};
+
+    String location = (data['address'] as String?) ?? '';
+    if (location.isEmpty && data['location'] is GeoPoint) {
+      final gp = data['location'] as GeoPoint;
+      location =
+          '${gp.latitude.toStringAsFixed(4)}, ${gp.longitude.toStringAsFixed(4)}';
+    }
+    if (location.isEmpty && data['location'] is String) {
+      location = data['location'] as String;
+    }
+
+    final mood = (analysis['mood'] ?? data['predictedMood'])?.toString() ?? '';
+    final disease =
+        (analysis['disease'] ?? data['predictedDisease'])?.toString() ?? '';
+    final conf = ((analysis['diseaseConfidence'] ??
+                analysis['confidence'] ??
+                data['diseaseConfidence']) as num?)
+            ?.toInt() ??
+        0;
     final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
     final dateStr = timestamp != null
         ? DateFormat('d MMM yyyy · h:mm a').format(timestamp)
@@ -324,9 +360,26 @@ class _StatusButtons extends StatelessWidget {
   const _StatusButtons({required this.docId, required this.current});
 
   Future<void> _set(String s) => FirebaseFirestore.instance
-      .collection('reports')
+      .collection('scans')
       .doc(docId)
       .update({'status': s});
+
+  String _canonical(String s) {
+    switch (s.toLowerCase().trim()) {
+      case 'solved':
+      case 'rescued':
+        return 'solved';
+      case 'pending':
+      case 'undercare':
+        return 'pending';
+      case 'missing':
+      case 'need help':
+      case 'needs help':
+        return 'missing';
+      default:
+        return s.toLowerCase();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -335,11 +388,12 @@ class _StatusButtons extends StatelessWidget {
       ('pending', 'Undercare', Color(0xFFE65100)),
       ('solved', 'Rescued', Color(0xFF2E7D32)),
     ];
+    final canonicalCurrent = _canonical(current);
     return Wrap(
       spacing: 8,
       runSpacing: 6,
       children: opts.map(((String, String, Color) o) {
-        final active = current.toLowerCase() == o.$1;
+        final active = canonicalCurrent == o.$1;
         return GestureDetector(
           onTap: active ? null : () => _set(o.$1),
           child: AnimatedContainer(
