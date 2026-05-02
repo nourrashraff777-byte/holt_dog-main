@@ -59,7 +59,6 @@ class MyReportScreen extends StatelessWidget {
                     stream: FirebaseFirestore.instance
                         .collection('scans')
                         .where('userId', isEqualTo: uid)
-                        .orderBy('timestamp', descending: true)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -74,10 +73,22 @@ class MyReportScreen extends StatelessWidget {
                           child: Text('Error: ${snapshot.error}'),
                         );
                       }
-                      final docs = snapshot.data?.docs ?? [];
+                      final docs = [...?snapshot.data?.docs];
                       if (docs.isEmpty) {
                         return _buildEmptyState();
                       }
+                      // Sort newest first in Dart so we don't need a
+                      // composite Firestore index.
+                      docs.sort((a, b) {
+                        final ta = (a.data() as Map<String, dynamic>)['timestamp']
+                            as Timestamp?;
+                        final tb = (b.data() as Map<String, dynamic>)['timestamp']
+                            as Timestamp?;
+                        if (ta == null && tb == null) return 0;
+                        if (ta == null) return 1;
+                        if (tb == null) return -1;
+                        return tb.compareTo(ta);
+                      });
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 16),
