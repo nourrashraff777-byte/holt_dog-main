@@ -2,6 +2,7 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -131,18 +132,27 @@ class _ScanScreenState extends State<ScanScreen> {
         }
       } catch (_) {}
 
-      // 3. Save to Firestore `scans` collection (matches My Reports schema).
+      // 3. Compute an MD5 hash of the image bytes for de-duplication.
+      String? imageHash;
+      try {
+        final bytes = await image.readAsBytes();
+        imageHash = md5.convert(bytes).toString();
+      } catch (_) {}
+
+      // 4. Save to Firestore `scans` collection (matches My Reports schema).
       final analysis = <String, dynamic>{
         'disease': aiData['predicted_disease'],
-        'confidence': aiData['disease_confidence'],
+        'diseaseConfidence': aiData['disease_confidence'],
         'isDog': aiData['is_dog'],
         'mood': aiData['predicted_mood'],
+        'moodConfidence': aiData['mood_confidence'],
+        'allProbabilities': aiData['all_disease_probabilities'] ?? {},
       };
 
       await FirebaseFirestore.instance.collection('scans').add({
         'userId': user.uid,
         'imageUrl': imageUrl,
-        'imageHash': null,
+        'imageHash': imageHash,
         'analysis': analysis,
         if (lat != null && lng != null) 'location': GeoPoint(lat, lng),
         'address': address,
