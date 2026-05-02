@@ -57,9 +57,8 @@ class MyReportScreen extends StatelessWidget {
                 ? const Center(child: Text('Please log in to view reports.'))
                 : StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
-                        .collection('reports')
-                        .where('reporterId', isEqualTo: uid)
-                        .orderBy('timestamp', descending: true)
+                        .collection('scans')
+                        .where('userId', isEqualTo: uid)
                         .snapshots(),
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -74,10 +73,22 @@ class MyReportScreen extends StatelessWidget {
                           child: Text('Error: ${snapshot.error}'),
                         );
                       }
-                      final docs = snapshot.data?.docs ?? [];
+                      final docs = [...?snapshot.data?.docs];
                       if (docs.isEmpty) {
                         return _buildEmptyState();
                       }
+                      // Sort newest first in Dart so we don't need a
+                      // composite Firestore index.
+                      docs.sort((a, b) {
+                        final ta = (a.data() as Map<String, dynamic>)['timestamp']
+                            as Timestamp?;
+                        final tb = (b.data() as Map<String, dynamic>)['timestamp']
+                            as Timestamp?;
+                        if (ta == null && tb == null) return 0;
+                        if (ta == null) return 1;
+                        if (tb == null) return -1;
+                        return tb.compareTo(ta);
+                      });
                       return ListView.builder(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 16),
@@ -183,7 +194,15 @@ class _ReportCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = (data['status'] as String?) ?? 'pending';
     final imageUrl = (data['imageUrl'] as String?) ?? '';
-    final description = (data['description'] as String?) ?? '';
+    final address = (data['address'] as String?) ?? '';
+
+    final analysis = (data['analysis'] is Map)
+        ? Map<String, dynamic>.from(data['analysis'] as Map)
+        : const <String, dynamic>{};
+    final disease = (analysis['disease'] as String?) ?? '';
+    final mood = (analysis['mood'] as String?) ?? '';
+    final isDog = analysis['isDog'] == true;
+
     final timestamp = (data['timestamp'] as Timestamp?)?.toDate();
     final dateStr = timestamp != null
         ? DateFormat('d/M/yyyy').format(timestamp)
@@ -239,21 +258,59 @@ class _ReportCard extends StatelessWidget {
                 // ── Info section ──
                 Padding(
                   padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                  child: Row(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          description.isNotEmpty
-                              ? description
-                              : 'No description provided.',
-                          style: const TextStyle(
-                            fontSize: 13.5,
-                            color: Color(0xFF333333),
-                            height: 1.4,
+                      if (isDog && (disease.isNotEmpty || mood.isNotEmpty))
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 6,
+                          children: [
+                            if (disease.isNotEmpty)
+                              _MetaChip(
+                                icon: Icons.healing,
+                                label: disease,
+                                color: const Color(0xFF4A148C),
+                              ),
+                            if (mood.isNotEmpty)
+                              _MetaChip(
+                                icon: Icons.mood,
+                                label: mood,
+                                color: const Color(0xFFE65100),
+                              ),
+                          ],
+                        ),
+                      if (isDog && (disease.isNotEmpty || mood.isNotEmpty))
+                        const SizedBox(height: 8),
+                      if (address.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.location_on_outlined,
+                                size: 16, color: Color(0xFF7B1FA2)),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                address,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Color(0xFF333333),
+                                  height: 1.4,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        const Text(
+                          'No address recorded.',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.black54,
                           ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -323,6 +380,45 @@ class _ReportCard extends StatelessWidget {
       color: const Color(0xFFEDE7F6),
       child: const Center(
         child: Icon(Icons.pets, color: Color(0xFF7B1FA2), size: 60),
+      ),
+    );
+  }
+}
+
+class _MetaChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _MetaChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -1,13 +1,17 @@
 import 'dart:developer';
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/services/location_service.dart';
 import '../../user_home/widgets/user_quick_actions_widgets.dart';
 
 class ScanScreen extends StatefulWidget {
@@ -20,12 +24,22 @@ class ScanScreen extends StatefulWidget {
 class _ScanScreenState extends State<ScanScreen> {
   static const String _predictUrl =
       'https://yh-777-dog-ai-api.hf.space/predict';
+  static const String _cloudName = 'dk7um4nir';
+  static const String _uploadPreset = 'url_default';
+
   static final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _predictUrl,
-      connectTimeout: const Duration(seconds: 20),
-      receiveTimeout: const Duration(seconds: 20),
+      connectTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 60),
       validateStatus: (status) => status != null && status < 500,
+    ),
+  );
+
+  static final Dio _uploadDio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 30),
+      receiveTimeout: const Duration(seconds: 60),
     ),
   );
 
@@ -34,6 +48,7 @@ class _ScanScreenState extends State<ScanScreen> {
   bool _isLoading = false;
   String _statusMessage = 'Select a dog image to start the scan';
   Map<String, dynamic>? _resultData;
+  bool _saved = false;
 
   Future<void> _pickImage() async {
     final XFile? pickedFile = await _imagePicker.pickImage(
@@ -46,6 +61,7 @@ class _ScanScreenState extends State<ScanScreen> {
       _image = File(pickedFile.path);
       _statusMessage = 'Image selected, press analyze';
       _resultData = null;
+      _saved = false;
     });
   }
 
@@ -57,6 +73,7 @@ class _ScanScreenState extends State<ScanScreen> {
       _isLoading = true;
       _statusMessage = 'Analyzing... please wait a moment';
       _resultData = null;
+      _saved = false;
     });
 
     final _ApiResponse response = await _sendImage(selectedImage);
@@ -64,18 +81,115 @@ class _ScanScreenState extends State<ScanScreen> {
 
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-      if (response.isSuccess && response.data?['success'] == true) {
+    if (response.isSuccess && response.data?['success'] == true) {
+      setState(() {
         _resultData = response.data!;
-        _statusMessage = 'Analysis completed';
-      } else {
-        log('API error: ${response.errorMessage}');
+        _statusMessage = 'Saving to your reports...';
+      });
+      await _saveScanToFirestore(selectedImage, response.data!);
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    } else {
+      log('API error: ${response.errorMessage}');
+      setState(() {
+        _isLoading = false;
         _statusMessage = response.errorMessage ??
             response.data?['message']?.toString() ??
             'An unexpected error occurred';
+      });
+    }
+  }
+
+  Future<void> _saveScanToFirestore(
+      File image, Map<String, dynamic> aiData) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      setState(() => _statusMessage =
+          'Analysis completed (sign in to save to your reports)');
+      return;
+    }
+
+    try {
+      // 1. Upload image to Cloudinary.
+      final imageUrl = await _uploadToCloudinary(image);
+      if (imageUrl == null) {
+        setState(() => _statusMessage =
+            'Analysis completed (image upload failed, not saved)');
+        return;
       }
-    });
+
+      // 2. Try to capture the user's location (optional — don't block save).
+      double? lat;
+      double? lng;
+      String address = '';
+      try {
+        final position = await LocationService.getLocationWithPermission();
+        if (position != null) {
+          lat = position.latitude;
+          lng = position.longitude;
+          address =
+              await LocationService.getCityName(position.latitude, position.longitude);
+        }
+      } catch (_) {}
+
+      // 3. Compute an MD5 hash of the image bytes for de-duplication.
+      String? imageHash;
+      try {
+        final bytes = await image.readAsBytes();
+        imageHash = md5.convert(bytes).toString();
+      } catch (_) {}
+
+      // 4. Save to Firestore `scans` collection (matches My Reports schema).
+      final analysis = <String, dynamic>{
+        'disease': aiData['predicted_disease'],
+        'diseaseConfidence': aiData['disease_confidence'],
+        'isDog': aiData['is_dog'],
+        'mood': aiData['predicted_mood'],
+        'moodConfidence': aiData['mood_confidence'],
+        'allProbabilities': aiData['all_disease_probabilities'] ?? {},
+      };
+
+      await FirebaseFirestore.instance.collection('scans').add({
+        'userId': user.uid,
+        'imageUrl': imageUrl,
+        'imageHash': imageHash,
+        'analysis': analysis,
+        if (lat != null && lng != null) 'location': GeoPoint(lat, lng),
+        'address': address,
+        'status': 'Need Help',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      if (!mounted) return;
+      setState(() {
+        _saved = true;
+        _statusMessage = 'Saved to your reports';
+      });
+    } catch (e) {
+      log('Save error: $e');
+      if (!mounted) return;
+      setState(() => _statusMessage =
+          'Analysis completed (save failed: ${e.toString()})');
+    }
+  }
+
+  Future<String?> _uploadToCloudinary(File image) async {
+    try {
+      final url =
+          'https://api.cloudinary.com/v1_1/$_cloudName/image/upload';
+      final formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(image.path),
+        'upload_preset': _uploadPreset,
+      });
+      final res = await _uploadDio.post<dynamic>(url, data: formData);
+      if (res.statusCode == 200 && res.data is Map) {
+        return res.data['secure_url']?.toString();
+      }
+      return null;
+    } catch (e) {
+      log('Cloudinary error: $e');
+      return null;
+    }
   }
 
   String _formatPercent(dynamic value) {
@@ -184,12 +298,41 @@ class _ScanScreenState extends State<ScanScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Analysis Result',
-            style: AppTypography.bodyLarge.copyWith(
-              fontWeight: FontWeight.w700,
-              color: AppColors.primaryPurple,
-            ),
+          Row(
+            children: [
+              Text(
+                'Analysis Result',
+                style: AppTypography.bodyLarge.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryPurple,
+                ),
+              ),
+              const Spacer(),
+              if (_saved)
+                Container(
+                  padding: EdgeInsets.symmetric(
+                      horizontal: 8.w, vertical: 4.h),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10.r),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle,
+                          color: Colors.green, size: 14.w),
+                      SizedBox(width: 4.w),
+                      Text(
+                        'Saved',
+                        style: AppTypography.bodySmall.copyWith(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
           SizedBox(height: 12.h),
           Wrap(
