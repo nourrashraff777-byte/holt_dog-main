@@ -128,7 +128,7 @@ class DatabaseService {
   final Dio _dio = Dio();
 
   final String _cloudName = "dk7um4nir";
-  final String _uploadPreset = "url_default";
+  final String _uploadPreset = "ml_default";
 
   // --- [ وظائف البروفايل الجديدة ] ---
 
