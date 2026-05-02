@@ -153,10 +153,12 @@ class _ScanScreenState extends State<ScanScreen> {
 
     final entries = allProbabilities.entries.toList()
       ..sort((a, b) {
-        final aVal =
-            a.value is num ? (a.value as num).toDouble() : double.tryParse('${a.value}') ?? 0;
-        final bVal =
-            b.value is num ? (b.value as num).toDouble() : double.tryParse('${b.value}') ?? 0;
+        final aVal = a.value is num
+            ? (a.value as num).toDouble()
+            : double.tryParse('${a.value}') ?? 0;
+        final bVal = b.value is num
+            ? (b.value as num).toDouble()
+            : double.tryParse('${b.value}') ?? 0;
         return bVal.compareTo(aVal);
       });
 

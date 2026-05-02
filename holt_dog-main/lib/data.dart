@@ -118,6 +118,10 @@ class OrderEntity {
 // 3. (Database Service)
 // =================================================================
 
+// =================================================================
+// 3. (Database Service) - المحدث مع وظائف البروفايل
+// =================================================================
+
 class DatabaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -125,6 +129,48 @@ class DatabaseService {
 
   final String _cloudName = "dk7um4nir";
   final String _uploadPreset = "url_default";
+
+  // --- [ وظائف البروفايل الجديدة ] ---
+
+  // 1. جلب بيانات المستخدم الحالي (لعرضها في المنيو والبروفايل)
+  Future<Map<String, dynamic>?> getUserData() async {
+    try {
+      String? uid = _auth.currentUser?.uid;
+      if (uid == null) return null;
+
+      DocumentSnapshot doc = await _db.collection('users').doc(uid).get();
+      if (doc.exists) {
+        return doc.data() as Map<String, dynamic>;
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error fetching user data: $e");
+      return null;
+    }
+  }
+
+  // 2. تحديث بيانات المستخدم (لزرار Save Changes)
+  Future<bool> updateUserProfile({
+    required String name,
+    required String phone,
+    String? username,
+    String? imageUrl,
+  }) async {
+    try {
+      String uid = _auth.currentUser!.uid;
+      await _db.collection('users').doc(uid).update({
+        'name': name,
+        'phone': phone,
+        if (username != null) 'username': username,
+        if (imageUrl != null) 'imageUrl': imageUrl,
+        'lastUpdated': FieldValue.serverTimestamp(),
+      });
+      return true;
+    } catch (e) {
+      debugPrint("Error updating profile: $e");
+      return false;
+    }
+  }
 
   // --- [ تسجيل مستخدم جديد ] ---
   Future<bool> registerUser({
@@ -201,8 +247,8 @@ class DatabaseService {
   Stream<List<Map<String, dynamic>>> getNearbyProviders({
     required double userLat,
     required double userLon,
-    required String targetRole, //
-    double radiusInKm = 50.0, //
+    required String targetRole,
+    double radiusInKm = 50.0,
   }) {
     return _db
         .collection('users')
@@ -242,7 +288,6 @@ class DatabaseService {
         }
       }
 
-      // ترتيب النتائج من الأقرب للأبعد
       providers.sort((a, b) => a['distance'].compareTo(b['distance']));
       return providers;
     });
@@ -315,7 +360,6 @@ class DatabaseService {
 
   Future<void> signOut() async => await _auth.signOut();
 }
-
 // =================================================================
 // 4. (Dynamic Home Wrapper & Screens)
 // =================================================================
