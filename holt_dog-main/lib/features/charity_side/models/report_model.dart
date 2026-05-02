@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum ReportStatus {
   solved,
@@ -13,6 +14,8 @@ class Report {
   final String date;
   final String imageUrl;
   final ReportStatus status;
+  final String reporterId;
+  final DateTime? timestamp;
 
   Report({
     required this.id,
@@ -21,7 +24,11 @@ class Report {
     required this.date,
     required this.imageUrl,
     required this.status,
+    this.reporterId = '',
+    this.timestamp,
   });
+
+  // ── Firestore serialisation ───────────────────────────────────────────────
 
   Map<String, dynamic> toMap() {
     return {
@@ -31,16 +38,23 @@ class Report {
       'date': date,
       'imageUrl': imageUrl,
       'status': status.name,
+      'reporterId': reporterId,
+      'timestamp': timestamp != null
+          ? Timestamp.fromDate(timestamp!)
+          : FieldValue.serverTimestamp(),
     };
   }
 
-  factory Report.fromMap(Map<String, dynamic> map, String id) {
+  factory Report.fromMap(Map<String, dynamic> map, String docId) {
     return Report(
-      id: id,
+      id: docId,
       title: map['title'] ?? '',
       location: map['location'] ?? '',
       date: map['date'] ?? '',
       imageUrl: map['imageUrl'] ?? '',
+      reporterId: map['reporterId'] ?? '',
+      timestamp:
+          (map['timestamp'] as Timestamp?)?.toDate(),
       status: ReportStatus.values.firstWhere(
         (e) => e.name == map['status'],
         orElse: () => ReportStatus.pending,
@@ -48,23 +62,30 @@ class Report {
     );
   }
 
+  factory Report.fromFirestore(DocumentSnapshot doc) {
+    final map = doc.data() as Map<String, dynamic>? ?? {};
+    return Report.fromMap(map, doc.id);
+  }
+
+  // ── UI helpers ────────────────────────────────────────────────────────────
+
   Color get statusColor {
     switch (status) {
       case ReportStatus.solved:
-        return const Color(0xFF4CAF50);
+        return const Color(0xFF2E7D32); // deep green
       case ReportStatus.pending:
-        return const Color(0xFFFF9800);
+        return const Color(0xFFE65100); // deep orange
       case ReportStatus.missing:
-        return const Color(0xFFF44336);
+        return const Color(0xFFC62828); // deep red
     }
   }
 
   String get statusText {
     switch (status) {
       case ReportStatus.solved:
-        return 'Resued';
+        return 'Rescued';
       case ReportStatus.pending:
-        return 'undercare';
+        return 'Undercare';
       case ReportStatus.missing:
         return 'Needs Help';
     }

@@ -39,6 +39,8 @@ class Shelter {
   }
 
   factory Shelter.fromMap(Map<String, dynamic> map, String id) {
+    final location = map['location'];
+
     return Shelter(
       id: id,
       name: map['name']?.toString() ?? '',
@@ -50,8 +52,24 @@ class Shelter {
       rating: (map['rating'] is num)
           ? (map['rating'] as num).toDouble()
           : double.tryParse(map['rating']?.toString() ?? '') ?? 4.0,
-      lat: LocationService.parseCoord(map['lat']),
-      lng: LocationService.parseCoord(map['lng']),
+      lat: LocationService.parseCoord(map['lat']) ??
+          LocationService.parseCoord(map['latitude']) ??
+          _coordFromLocation(location, 'latitude'),
+      lng: LocationService.parseCoord(map['lng']) ??
+          LocationService.parseCoord(map['longitude']) ??
+          _coordFromLocation(location, 'longitude'),
     );
+  }
+
+  static double? _coordFromLocation(dynamic location, String key) {
+    if (location == null) return null;
+    if (location is Map) return LocationService.parseCoord(location[key]);
+
+    try {
+      final coord = key == 'latitude' ? location.latitude : location.longitude;
+      return LocationService.parseCoord(coord);
+    } catch (_) {
+      return null;
+    }
   }
 }

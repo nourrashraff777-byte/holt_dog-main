@@ -8,14 +8,12 @@ class NavCurveClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     Path path = Path();
     path.moveTo(0, size.height * 0.5);
-
     path.quadraticBezierTo(
       size.width / 2,
       -size.height * 0.1,
       size.width,
       size.height * 0.5,
     );
-
     path.lineTo(size.width, size.height);
     path.lineTo(0, size.height);
     path.close();
@@ -29,11 +27,13 @@ class NavCurveClipper extends CustomClipper<Path> {
 class InsuranceNavBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
+  final int marketCartBadgeCount;
 
   const InsuranceNavBar({
     super.key,
     required this.currentIndex,
     required this.onTap,
+    this.marketCartBadgeCount = 0,
   });
 
   @override
@@ -45,17 +45,17 @@ class InsuranceNavBar extends StatelessWidget {
         clipBehavior: Clip.none,
         alignment: Alignment.bottomCenter,
         children: [
-          // The Arched Purple Background
+          // Arched purple background
           ClipPath(
             clipper: NavCurveClipper(),
             child: Container(
-              height: 120.h, // Increased for smooth clip
+              height: 120.h,
               width: double.infinity,
               color: AppColors.primaryPurple,
             ),
           ),
 
-          // Navigation Items with animated indicators
+          // Navigation items
           Positioned(
             left: 0,
             right: 0,
@@ -64,7 +64,16 @@ class InsuranceNavBar extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                _buildNavItem(0, Icons.analytics, 'Results', 30.h),
+                _buildNavItem(0, Icons.payments, 'Donate', 15.h),
+                _buildNavItem(1, Icons.home, 'Home', 30.h),
+                _buildNavItem(2, Icons.analytics, 'Results', 30.h),
+                _buildNavItem(
+                  3,
+                  Icons.shopping_bag,
+                  'Market',
+                  15.h,
+                  badgeCount: marketCartBadgeCount,
+                ),
               ],
             ),
           ),
@@ -74,8 +83,17 @@ class InsuranceNavBar extends StatelessWidget {
   }
 
   Widget _buildNavItem(
-      int index, IconData icon, String label, double bottomMargin) {
-    bool isSelected = currentIndex == index;
+    int index,
+    IconData icon,
+    String label,
+    double bottomMargin, {
+    int badgeCount = 0,
+  }) {
+    final isSelected = currentIndex == index;
+    final iconColor = isSelected
+        ? AppColors.primaryPurple
+        : AppColors.primaryPurple.withValues(alpha: 0.7);
+    final iconSize = isSelected ? 32.w : 28.w;
 
     return GestureDetector(
       onTap: () => onTap(index),
@@ -85,13 +103,11 @@ class InsuranceNavBar extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Animated Selection Indicator Container
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeOutCubic,
               padding: EdgeInsets.all(isSelected ? 14.w : 10.w),
               decoration: BoxDecoration(
-                // Active: Pure White with Glow, Inactive: Classic Light Gray
                 color: isSelected ? Colors.white : const Color(0xFFD9D9D9),
                 borderRadius: BorderRadius.circular(15.r),
                 boxShadow: isSelected
@@ -109,21 +125,47 @@ class InsuranceNavBar extends StatelessWidget {
                       ]
                     : [],
               ),
-              child: Icon(
-                icon,
-                color: isSelected
-                    ? AppColors.primaryPurple
-                    : AppColors.primaryPurple.withValues(alpha: 0.7),
-                size: isSelected ? 32.w : 28.w,
-              ),
+              child: badgeCount > 0
+                  ? Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Icon(icon, color: iconColor, size: iconSize),
+                        Positioned(
+                          right: -4.w,
+                          top: -4.h,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: badgeCount > 9 ? 4.w : 5.w,
+                              vertical: 2.h,
+                            ),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF9E9E9E),
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: BoxConstraints(minWidth: 18.w),
+                            alignment: Alignment.center,
+                            child: Text(
+                              badgeCount > 99 ? '99+' : '$badgeCount',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.sp,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  : Icon(icon, color: iconColor, size: iconSize),
             ),
             SizedBox(height: 4.h),
-            // Label with subtle bold change
             AnimatedDefaultTextStyle(
               duration: const Duration(milliseconds: 300),
               style: AppTypography.caption.copyWith(
                 color: Colors.white,
-                fontWeight: isSelected ? FontWeight.w900 : FontWeight.w500,
+                fontWeight:
+                    isSelected ? FontWeight.w900 : FontWeight.w500,
                 fontSize: 13.sp,
                 letterSpacing: isSelected ? 0.5 : 0.2,
               ),
