@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
@@ -8,20 +9,48 @@ class AuthService {
   Stream<User?> get user => _auth.authStateChanges();
 
   /// Sign up with email + password. [role] can be stored later with the user profile.
-  Future<UserCredential?> signUp(
-    String email,
-    String password, {
+  Future<UserCredential?> signUp({
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
     String role = 'user',
   }) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(
+      final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
+      // Store user details in Firestore
+      final user = userCredential.user;
+      if (user != null) {
+        await _auth.currentUser!.updateDisplayName(name);
+        
+        // Store additional user data in Firestore
+        await _saveUserDetails(user.uid, name, phone, email, role);
+      }
+      return userCredential;
     } catch (e) {
       debugPrint('SignUp Error: $e');
       return null;
     }
+  }
+
+  Future<void> _saveUserDetails(
+    String uid,
+    String name,
+    String phone,
+    String email,
+    String role,
+  ) async {
+    await FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'name': name,
+      'phone': phone,
+      'email': email,
+      'role': role,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    debugPrint('User details saved: uid=$uid, name=$name, role=$role');
   }
 
   /// Login with email + password.
