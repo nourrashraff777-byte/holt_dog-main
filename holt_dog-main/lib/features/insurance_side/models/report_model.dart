@@ -175,4 +175,8 @@ class Report {
         return 'Needs Help';
     }
   }
+
+  get uploaderName => null;
+
+  get uploaderEmail => null;
 }

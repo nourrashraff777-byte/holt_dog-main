@@ -6,9 +6,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:convert';
+// ignore: depend_on_referenced_packages
+import 'package:crypto/crypto.dart';
 
 // =================================================================
-// 1. role definitions
+// 1. (Enums)
 // =================================================================
 enum UserRole { USER, DOCTOR, CHARITY, RETAILER, INSURANCE }
 
@@ -115,11 +118,7 @@ class OrderEntity {
 }
 
 // =================================================================
-// 3. (Database Service)
-// =================================================================
-
-// =================================================================
-// 3. (Database Service) - المحدث مع وظائف البروفايل
+// 3. (Database Service) - المحدث بالكامل
 // =================================================================
 
 class DatabaseService {
@@ -130,9 +129,8 @@ class DatabaseService {
   final String _cloudName = "dk7um4nir";
   final String _uploadPreset = "ml_default";
 
-  // --- [ وظائف البروفايل الجديدة ] ---
+  // --- [ وظائف البروفايل ] ---
 
-  // 1. جلب بيانات المستخدم الحالي (لعرضها في المنيو والبروفايل)
   Future<Map<String, dynamic>?> getUserData() async {
     try {
       String? uid = _auth.currentUser?.uid;
@@ -149,7 +147,6 @@ class DatabaseService {
     }
   }
 
-  // 2. تحديث بيانات المستخدم (لزرار Save Changes)
   Future<bool> updateUserProfile({
     required String name,
     required String phone,
@@ -202,7 +199,7 @@ class DatabaseService {
     }
   }
 
-  // --- [ تسجيل الدخول وجلب الرول ] ---
+  // --- [ تسجيل الدخول ] ---
   Future<String?> loginAndGetRole(String email, String password) async {
     try {
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
@@ -215,7 +212,16 @@ class DatabaseService {
     }
   }
 
-  // --- [ AI ] ---
+  // --- [ AI Scan ] ---
+  Future<String> calculateImageHash(File imageFile) async {
+    List<int> imageBytes = await imageFile.readAsBytes();
+
+    // 2. عمل الـ Hash
+    var hash = sha256.convert(imageBytes);
+
+    return hash.toString();
+  }
+
   Future<void> saveAiScanResult({
     required String imageUrl,
     required String? imageHash,
@@ -360,6 +366,7 @@ class DatabaseService {
 
   Future<void> signOut() async => await _auth.signOut();
 }
+
 // =================================================================
 // 4. (Dynamic Home Wrapper & Screens)
 // =================================================================
