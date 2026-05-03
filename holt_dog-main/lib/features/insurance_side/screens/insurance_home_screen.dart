@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:holt_dog/features/charity_side/screens/results_screen.dart';
-import 'package:holt_dog/features/charity_side/screens/marketplace_screen.dart';
-import 'package:holt_dog/features/donation/screens/donation_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:holt_dog/features/user_side/user_home/screens/custom_drawer.dart';
 import 'package:holt_dog/features/insurance_side/widgets/insurance_quick_actions_widgets.dart';
 import '../models/report_model.dart';
-import '../widgets/insurance_nav_bar.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/app_typography.dart';
+import '../../../core/constants/app_styles.dart';
 
 class InsuranceHomeScreen extends StatefulWidget {
   static const String routeName = '/insuranceHome';
@@ -18,39 +18,74 @@ class InsuranceHomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<InsuranceHomeScreen> {
-  int _currentIndex = 1; // Default to Home
-  int _marketCartCount = 0;
-
-  late final List<Widget> _screens = [
-    const DonationScreen(),          // 0 - Donate
-    const _InsuranceHomeBody(),      // 1 - Home
-    const ResultsScreen(),           // 2 - Results (same as doctor style)
-    MarketplaceScreen(               // 3 - Market
-      onCartItemCountChanged: (count) =>
-          setState(() => _marketCartCount = count),
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const CustomDrawer(),
       backgroundColor: Colors.white,
-      extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: const _InsuranceHomeBody(),
+      bottomNavigationBar: _InsuranceNavBarSimple(),
+    );
+  }
+}
+
+// ─── Simple nav bar with only Home visible ───────────────────────────────────
+
+class _InsuranceNavBarSimple extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 80.h,
+      decoration: BoxDecoration(
+        color: AppColors.primaryPurple,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24.r),
+          topRight: Radius.circular(24.r),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryPurple.withValues(alpha: 0.3),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
-      bottomNavigationBar: InsuranceNavBar(
-        currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
-        marketCartBadgeCount: _marketCartCount,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.white.withValues(alpha: 0.4),
+                    blurRadius: 10,
+                  ),
+                ],
+              ),
+              child: Icon(Icons.home,
+                  color: AppColors.primaryPurple, size: 28.w),
+            ),
+            SizedBox(height: 4.h),
+            Text(
+              'Home',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 13.sp,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── Insurance home body — shows reports feed ─────────────────────────────────
+// ─── Insurance home body — streams from 'scans' ───────────────────────────────
 
 class _InsuranceHomeBody extends StatelessWidget {
   const _InsuranceHomeBody();
@@ -59,7 +94,7 @@ class _InsuranceHomeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('reports')
+          .collection('scans')
           .orderBy('timestamp', descending: true)
           .limit(20)
           .snapshots(),
@@ -114,14 +149,14 @@ class _InsuranceHomeBody extends StatelessWidget {
   }
 }
 
-// ─── Home feed card (with Uploaded By, matching the insurance screenshot) ─────
+// ─── Report card — same design as charity/doctor, adds reporter's name ────────
 
 class _InsuranceReportCard extends StatelessWidget {
   final Report report;
   const _InsuranceReportCard({required this.report});
 
   Future<void> _setStatus(String s) => FirebaseFirestore.instance
-      .collection('reports')
+      .collection('scans')
       .doc(report.id)
       .update({'status': s});
 
@@ -135,16 +170,10 @@ class _InsuranceReportCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color: const Color(0xFFF5F5F5).withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              color: AppColors.backgroundGray.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(AppStyles.radiusL.r),
+              border: Border.all(
+                  color: AppColors.borderLight.withValues(alpha: 0.5)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,64 +183,104 @@ class _InsuranceReportCard extends StatelessWidget {
                   children: [
                     // Dog thumbnail
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(10.r),
-                      child: report.imageUrl.isNotEmpty
-                          ? Image.network(
-                              report.imageUrl,
-                              width: 130.w,
-                              height: 100.h,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _placeholder(),
-                            )
-                          : _placeholder(),
+                      borderRadius: BorderRadius.circular(AppStyles.radiusM.r),
+                      child: CachedNetworkImage(
+                        imageUrl: report.imageUrl,
+                        width: 130.w,
+                        height: 100.h,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          width: 130.w,
+                          height: 100.h,
+                          color: AppColors.backgroundWhite,
+                          child: Center(
+                            child: SizedBox(
+                              width: 20.w,
+                              height: 20.w,
+                              child: const CircularProgressIndicator(
+                                  strokeWidth: 2),
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          width: 130.w,
+                          height: 100.h,
+                          color: const Color(0xFFEDE7F6),
+                          child: Icon(Icons.pets,
+                              color: AppColors.textHint, size: 30.w),
+                        ),
+                      ),
                     ),
                     SizedBox(width: 16.w),
                     Expanded(
-                      child: Text(
-                        report.title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15.sp,
-                          color: const Color(0xFF1A1A1A),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            report.title,
+                            style: AppTypography.bodyLarge.copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textPrimary,
+                              fontSize: 16.sp,
+                            ),
+                          ),
+                          // Reporter name row (fetched by userId)
+                          if (report.reporterId.isNotEmpty) ...[
+                            SizedBox(height: 6.h),
+                            _ReporterName(userId: report.reporterId),
+                          ],
+                        ],
                       ),
                     ),
                   ],
                 ),
-                SizedBox(height: 10.h),
-                Row(
-                  children: [
-                    Icon(Icons.watch_later,
-                        color: Colors.grey[600], size: 16.w),
-                    SizedBox(width: 4.w),
-                    Text(report.date,
-                        style: TextStyle(
-                            fontSize: 12.sp,
+                SizedBox(height: 12.h),
+                Padding(
+                  padding: EdgeInsets.only(left: 4.w),
+                  child: Row(
+                    children: [
+                      Icon(Icons.watch_later,
+                          color: Colors.grey[600], size: 18.w),
+                      SizedBox(width: 4.w),
+                      Text(
+                        report.date,
+                        style: AppTypography.caption.copyWith(
+                          fontSize: 13.sp,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Icon(Icons.room, color: Colors.grey[600], size: 18.w),
+                      SizedBox(width: 4.w),
+                      Flexible(
+                        child: Text(
+                          report.location,
+                          style: AppTypography.caption.copyWith(
+                            fontSize: 13.sp,
                             color: Colors.grey[600],
-                            fontStyle: FontStyle.italic)),
-                    SizedBox(width: 10.w),
-                    Icon(Icons.room, color: Colors.grey[600], size: 16.w),
-                    SizedBox(width: 4.w),
-                    Text(report.location,
-                        style: TextStyle(
-                            fontSize: 12.sp,
-                            color: Colors.grey[600],
-                            fontStyle: FontStyle.italic)),
-                  ],
+                            fontWeight: FontWeight.bold,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          // Status badge
+          // Status badge (tappable to change)
           Positioned(
-            top: -10.h,
-            right: 10.w,
+            top: -12.h,
+            right: 12.w,
             child: GestureDetector(
               onTap: () => _showStatusPicker(context),
               child: Container(
-                padding: EdgeInsets.symmetric(
-                    horizontal: 14.w, vertical: 6.h),
+                padding:
+                    EdgeInsets.symmetric(horizontal: 16.w, vertical: 6.h),
                 decoration: BoxDecoration(
                   color: report.statusColor,
                   borderRadius: BorderRadius.circular(10.r),
@@ -224,7 +293,7 @@ class _InsuranceReportCard extends StatelessWidget {
                 ),
                 child: Text(
                   report.statusText,
-                  style: TextStyle(
+                  style: AppTypography.caption.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 12.sp,
@@ -249,8 +318,7 @@ class _InsuranceReportCard extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Update Status',
-                style:
-                    TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _statusBtn('Needs Help', 'missing', const Color(0xFFC62828)),
             _statusBtn('Undercare', 'pending', const Color(0xFFE65100)),
@@ -269,24 +337,58 @@ class _InsuranceReportCard extends StatelessWidget {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: color,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
           onPressed: () => _setStatus(value),
-          child: Text(label,
-              style: const TextStyle(color: Colors.white)),
+          child: Text(label, style: const TextStyle(color: Colors.white)),
         ),
       ),
     );
   }
+}
 
-  Widget _placeholder() {
-    return Container(
-      width: 130.w,
-      height: 100.h,
-      color: const Color(0xFFEDE7F6),
-      child:
-          const Icon(Icons.pets, color: Color(0xFF7B1FA2), size: 40),
+// ─── Async widget — looks up the reporter's display name ─────────────────────
+
+class _ReporterName extends StatelessWidget {
+  final String userId;
+  const _ReporterName({required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
+      builder: (context, snap) {
+        String name = '';
+        if (snap.hasData && snap.data!.exists) {
+          final data = snap.data!.data() as Map<String, dynamic>? ?? {};
+          name = (data['displayName'] ??
+                  data['name'] ??
+                  data['username'] ??
+                  data['email'] ??
+                  '')
+              .toString();
+        }
+        if (name.isEmpty) return const SizedBox.shrink();
+        return Row(
+          children: [
+            Icon(Icons.person_outline,
+                size: 14.w, color: AppColors.primaryPurple),
+            SizedBox(width: 4.w),
+            Flexible(
+              child: Text(
+                name,
+                style: TextStyle(
+                  fontSize: 12.sp,
+                  color: AppColors.primaryPurple,
+                  fontWeight: FontWeight.w700,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

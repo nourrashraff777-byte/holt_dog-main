@@ -58,7 +58,7 @@ class _HomeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('reports')
+          .collection('scans')
           .orderBy('timestamp', descending: true)
           .limit(20)
           .snapshots(),
@@ -73,8 +73,6 @@ class _HomeBody extends StatelessWidget {
         }
 
         final docs = snapshot.data?.docs ?? [];
-
-        // Build Report list from Firestore; fall back to empty list
         final reports = docs.map((doc) => Report.fromFirestore(doc)).toList();
 
         return SingleChildScrollView(

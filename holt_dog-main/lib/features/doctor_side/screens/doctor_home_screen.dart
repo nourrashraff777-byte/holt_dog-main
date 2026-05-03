@@ -51,7 +51,7 @@ class _HomeBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('reports')
+          .collection('scans')
           .orderBy('timestamp', descending: true)
           .limit(20)
           .snapshots(),

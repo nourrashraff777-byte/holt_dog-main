@@ -46,20 +46,83 @@ class Report {
   }
 
   factory Report.fromMap(Map<String, dynamic> map, String docId) {
+    final analysis = (map['analysis'] is Map)
+        ? Map<String, dynamic>.from(map['analysis'] as Map)
+        : const <String, dynamic>{};
+
+    final disease = (analysis['disease'] ?? map['predictedDisease'])?.toString() ?? '';
+    final mood = (analysis['mood'] ?? map['predictedMood'])?.toString() ?? '';
+    final isDog = analysis['isDog'] == true;
+
+    String title;
+    if (map['title'] is String && (map['title'] as String).isNotEmpty) {
+      title = map['title'] as String;
+    } else if (isDog && disease.isNotEmpty && mood.isNotEmpty) {
+      title = '$disease · $mood';
+    } else if (isDog && disease.isNotEmpty) {
+      title = disease;
+    } else {
+      title = 'Dog scan';
+    }
+
+    String location = '';
+    final addr = map['address'];
+    if (addr is String && addr.isNotEmpty) {
+      location = addr;
+    } else if (map['location'] is GeoPoint) {
+      final gp = map['location'] as GeoPoint;
+      location =
+          '${gp.latitude.toStringAsFixed(4)}, ${gp.longitude.toStringAsFixed(4)}';
+    } else if (map['location'] is String) {
+      location = map['location'] as String;
+    }
+
+    final ts = (map['timestamp'] as Timestamp?)?.toDate();
+
     return Report(
       id: docId,
-      title: map['title'] ?? '',
-      location: map['location'] ?? '',
-      date: map['date'] ?? '',
-      imageUrl: map['imageUrl'] ?? '',
-      reporterId: map['reporterId'] ?? '',
-      timestamp:
-          (map['timestamp'] as Timestamp?)?.toDate(),
-      status: ReportStatus.values.firstWhere(
-        (e) => e.name == map['status'],
-        orElse: () => ReportStatus.pending,
-      ),
+      title: title,
+      location: location.isEmpty ? 'Unknown location' : location,
+      date: _relativeDate(ts),
+      imageUrl: map['imageUrl']?.toString() ?? '',
+      reporterId: (map['userId'] ?? map['reporterId'])?.toString() ?? '',
+      timestamp: ts,
+      status: _statusFromRaw(map['status']?.toString() ?? ''),
     );
+  }
+
+  static ReportStatus _statusFromRaw(String raw) {
+    switch (raw.toLowerCase().trim()) {
+      case 'solved':
+      case 'rescued':
+        return ReportStatus.solved;
+      case 'pending':
+      case 'undercare':
+        return ReportStatus.pending;
+      case 'missing':
+      case 'need help':
+      case 'needs help':
+        return ReportStatus.missing;
+      default:
+        return ReportStatus.pending;
+    }
+  }
+
+  static String _relativeDate(DateTime? d) {
+    if (d == null) return '—';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return '$h hour${h == 1 ? '' : 's'} ago';
+    }
+    if (diff.inDays < 7) {
+      final dy = diff.inDays;
+      return '$dy day${dy == 1 ? '' : 's'} ago';
+    }
+    final w = (diff.inDays / 7).floor();
+    return '$w week${w == 1 ? '' : 's'} ago';
   }
 
   factory Report.fromFirestore(DocumentSnapshot doc) {

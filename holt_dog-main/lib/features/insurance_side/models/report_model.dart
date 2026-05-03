@@ -17,12 +17,10 @@ class Report {
   final String reporterId;
   final DateTime? timestamp;
 
-  // AI analysis fields (optional — set when an analysis result is attached)
+  // AI analysis fields
   final String predictedMood;
   final String predictedDisease;
   final int diseaseConfidence;
-  final String uploaderName;
-  final String uploaderEmail;
 
   Report({
     required this.id,
@@ -36,8 +34,6 @@ class Report {
     this.predictedMood = '',
     this.predictedDisease = '',
     this.diseaseConfidence = 0,
-    this.uploaderName = '',
-    this.uploaderEmail = '',
   });
 
   // ── Firestore serialisation ────────────────────────────────────────────────
@@ -57,8 +53,6 @@ class Report {
       'predictedMood': predictedMood,
       'predictedDisease': predictedDisease,
       'diseaseConfidence': diseaseConfidence,
-      'uploaderName': uploaderName,
-      'uploaderEmail': uploaderEmail,
     };
   }
 
@@ -68,8 +62,24 @@ class Report {
         ? Map<String, dynamic>.from(map['analysis'] as Map)
         : const <String, dynamic>{};
 
-    // Location: prefer the human-readable `address` string; fall back to
-    // the GeoPoint coords; final fallback to a legacy `location` string.
+    final disease =
+        (analysis['disease'] ?? map['predictedDisease'])?.toString() ?? '';
+    final mood = (analysis['mood'] ?? map['predictedMood'])?.toString() ?? '';
+    final isDog = analysis['isDog'] == true;
+
+    // Build a title from analysis if no explicit title
+    String title;
+    if (map['title'] is String && (map['title'] as String).isNotEmpty) {
+      title = map['title'] as String;
+    } else if (isDog && disease.isNotEmpty && mood.isNotEmpty) {
+      title = '$disease · $mood';
+    } else if (isDog && disease.isNotEmpty) {
+      title = disease;
+    } else {
+      title = 'Dog scan';
+    }
+
+    // Location: prefer address string, then GeoPoint, then legacy string
     String locationStr = '';
     final address = map['address'];
     if (address is String && address.isNotEmpty) {
@@ -82,25 +92,23 @@ class Report {
       locationStr = map['location'] as String;
     }
 
+    final ts = (map['timestamp'] as Timestamp?)?.toDate();
+
     return Report(
       id: docId,
-      title: map['title']?.toString() ?? '',
-      location: locationStr,
-      date: map['date']?.toString() ?? '',
+      title: title,
+      location: locationStr.isEmpty ? 'Unknown location' : locationStr,
+      date: _relativeDate(ts),
       imageUrl: map['imageUrl']?.toString() ?? '',
       reporterId: (map['userId'] ?? map['reporterId'])?.toString() ?? '',
-      timestamp: (map['timestamp'] as Timestamp?)?.toDate(),
-      predictedMood:
-          (analysis['mood'] ?? map['predictedMood'])?.toString() ?? '',
-      predictedDisease:
-          (analysis['disease'] ?? map['predictedDisease'])?.toString() ?? '',
+      timestamp: ts,
+      predictedMood: mood,
+      predictedDisease: disease,
       diseaseConfidence: ((analysis['diseaseConfidence'] ??
                   analysis['confidence'] ??
                   map['diseaseConfidence']) as num?)
               ?.toInt() ??
           0,
-      uploaderName: map['uploaderName']?.toString() ?? '',
-      uploaderEmail: map['uploaderEmail']?.toString() ?? '',
       status: _statusFromRaw(map['status']?.toString() ?? ''),
     );
   }
@@ -120,6 +128,23 @@ class Report {
       default:
         return ReportStatus.pending;
     }
+  }
+
+  static String _relativeDate(DateTime? d) {
+    if (d == null) return '—';
+    final diff = DateTime.now().difference(d);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} min ago';
+    if (diff.inHours < 24) {
+      final h = diff.inHours;
+      return '$h hour${h == 1 ? '' : 's'} ago';
+    }
+    if (diff.inDays < 7) {
+      final dy = diff.inDays;
+      return '$dy day${dy == 1 ? '' : 's'} ago';
+    }
+    final w = (diff.inDays / 7).floor();
+    return '$w week${w == 1 ? '' : 's'} ago';
   }
 
   factory Report.fromFirestore(DocumentSnapshot doc) {
