@@ -213,23 +213,13 @@ class _InsuranceReportCard extends StatelessWidget {
                     ),
                     SizedBox(width: 16.w),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            report.title,
-                            style: AppTypography.bodyLarge.copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.textPrimary,
-                              fontSize: 16.sp,
-                            ),
-                          ),
-                          // Reporter name row (fetched by userId)
-                          if (report.reporterId.isNotEmpty) ...[
-                            SizedBox(height: 6.h),
-                            _ReporterName(userId: report.reporterId),
-                          ],
-                        ],
+                      child: Text(
+                        report.title,
+                        style: AppTypography.bodyLarge.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.textPrimary,
+                          fontSize: 16.sp,
+                        ),
                       ),
                     ),
                   ],
@@ -269,6 +259,11 @@ class _InsuranceReportCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                // ── Reported by row ───────────────────────────────────
+                if (report.reporterId.isNotEmpty) ...[
+                  SizedBox(height: 10.h),
+                  _ReportedByRow(userId: report.reporterId),
+                ],
               ],
             ),
           ),
@@ -348,17 +343,29 @@ class _InsuranceReportCard extends StatelessWidget {
   }
 }
 
-// ─── Async widget — looks up the reporter's display name ─────────────────────
+// ─── "Reported by" chip — looks up name from users/{userId} ─────────────────
 
-class _ReporterName extends StatelessWidget {
+class _ReportedByRow extends StatelessWidget {
   final String userId;
-  const _ReporterName({required this.userId});
+  const _ReportedByRow({required this.userId});
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<DocumentSnapshot>(
       future: FirebaseFirestore.instance.collection('users').doc(userId).get(),
       builder: (context, snap) {
+        // While loading show a small shimmer-like placeholder
+        if (snap.connectionState == ConnectionState.waiting) {
+          return Container(
+            height: 28.h,
+            width: 140.w,
+            decoration: BoxDecoration(
+              color: AppColors.primaryPurple.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20.r),
+            ),
+          );
+        }
+
         String name = '';
         if (snap.hasData && snap.data!.exists) {
           final data = snap.data!.data() as Map<String, dynamic>? ?? {};
@@ -367,26 +374,51 @@ class _ReporterName extends StatelessWidget {
                   data['username'] ??
                   data['email'] ??
                   '')
-              .toString();
+              .toString()
+              .trim();
         }
+
         if (name.isEmpty) return const SizedBox.shrink();
-        return Row(
-          children: [
-            Icon(Icons.person_outline,
-                size: 14.w, color: AppColors.primaryPurple),
-            SizedBox(width: 4.w),
-            Flexible(
-              child: Text(
-                name,
+
+        return Container(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+          decoration: BoxDecoration(
+            color: AppColors.primaryPurple.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(20.r),
+            border: Border.all(
+              color: AppColors.primaryPurple.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.account_circle_outlined,
+                size: 16.w,
+                color: AppColors.primaryPurple,
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                'Reported by  ',
                 style: TextStyle(
                   fontSize: 12.sp,
-                  color: AppColors.primaryPurple,
-                  fontWeight: FontWeight.w700,
+                  color: Colors.grey[600],
+                  fontWeight: FontWeight.w500,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
+              Flexible(
+                child: Text(
+                  name,
+                  style: TextStyle(
+                    fontSize: 12.sp,
+                    color: AppColors.primaryPurple,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
