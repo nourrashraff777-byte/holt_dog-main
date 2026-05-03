@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -30,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  String _selectedUserType = 'User';
 
   @override
   void dispose() {
@@ -48,22 +45,24 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _navigateBySelectedUserType() {
-    log('selectedUserType: $_selectedUserType');
-    switch (_selectedUserType) {
+  void _navigateByRole(String role) {
+    switch (role) {
+      case 'insurance_agent':
       case 'Insurance Agent':
         context.go(InsuranceHomeScreen.routeName);
         break;
+      case 'retailer':
       case 'Retailer':
         context.go(RetailerHomeScreen.routeName);
         break;
+      case 'charity':
       case 'Charity':
         context.go(CharityHomeScreen.routeName);
         break;
+      case 'doctor':
       case 'Doctor':
         context.go(DoctorHomeScreen.routeName);
         break;
-      case 'User':
       default:
         context.go(UserHomeScreen.routeName);
         break;
@@ -75,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return BlocListener<AuthCubit, AuthState>(
       listener: (context, state) {
         if (state is Authenticated) {
-          _navigateBySelectedUserType();
+          _navigateByRole(state.user.role);
         } else if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message)),
@@ -138,51 +137,51 @@ class _LoginScreenState extends State<LoginScreen> {
                           return null;
                         },
                       ),
-                      SizedBox(height: 30.h),
-                      DropdownButtonFormField<String>(
-                        initialValue: _selectedUserType,
-                        decoration: InputDecoration(
-                          labelText: 'Login as',
-                          labelStyle: AppTypography.bodyMedium.copyWith(
-                            color: AppColors.textPrimary,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                            borderSide: const BorderSide(
-                              color: AppColors.borderLight,
-                            ),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12.r),
-                            borderSide: const BorderSide(
-                              color: AppColors.primaryMagenta,
-                            ),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 16.w,
-                            vertical: 14.h,
-                          ),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'User', child: Text('User')),
-                          DropdownMenuItem(
-                              value: 'Doctor', child: Text('Doctor')),
-                          DropdownMenuItem(
-                              value: 'Charity', child: Text('Charity')),
-                          DropdownMenuItem(
-                              value: 'Retailer', child: Text('Retailer')),
-                          DropdownMenuItem(
-                              value: 'Insurance Agent',
-                              child: Text('Insurance Agent')),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          setState(() => _selectedUserType = value);
-                        },
-                      ),
+                      // SizedBox(height: 30.h),
+                      // DropdownButtonFormField<String>(
+                      //   initialValue: _selectedUserType,
+                      //   decoration: InputDecoration(
+                      //     labelText: 'Login as',
+                      //     labelStyle: AppTypography.bodyMedium.copyWith(
+                      //       color: AppColors.textPrimary,
+                      //     ),
+                      //     border: OutlineInputBorder(
+                      //       borderRadius: BorderRadius.circular(12.r),
+                      //     ),
+                      //     enabledBorder: OutlineInputBorder(
+                      //       borderRadius: BorderRadius.circular(12.r),
+                      //       borderSide: const BorderSide(
+                      //         color: AppColors.borderLight,
+                      //       ),
+                      //     ),
+                      //     focusedBorder: OutlineInputBorder(
+                      //       borderRadius: BorderRadius.circular(12.r),
+                      //       borderSide: const BorderSide(
+                      //         color: AppColors.primaryMagenta,
+                      //       ),
+                      //     ),
+                      //     contentPadding: EdgeInsets.symmetric(
+                      //       horizontal: 16.w,
+                      //       vertical: 14.h,
+                      //     ),
+                      //   ),
+                      //   items: const [
+                      //     DropdownMenuItem(value: 'User', child: Text('User')),
+                      //     DropdownMenuItem(
+                      //         value: 'Doctor', child: Text('Doctor')),
+                      //     DropdownMenuItem(
+                      //         value: 'Charity', child: Text('Charity')),
+                      //     DropdownMenuItem(
+                      //         value: 'Retailer', child: Text('Retailer')),
+                      //     DropdownMenuItem(
+                      //         value: 'Insurance Agent',
+                      //         child: Text('Insurance Agent')),
+                      //   ],
+                      //   onChanged: (value) {
+                      //     if (value == null) return;
+                      //     setState(() => _selectedUserType = value);
+                      //   },
+                      // ),
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -238,17 +237,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                       ),
-                      // SizedBox(height: 20.h),
-                      // TextButton(
-                      //   onPressed: () => context.go(AppRouter.home),
-                      //   child: Text(
-                      //     'Skip to Home (Test Only)',
-                      //     style: AppTypography.caption.copyWith(
-                      //       color: AppColors.primaryMagenta.withValues(alpha:0.5),
-                      //       decoration: TextDecoration.underline,
-                      //     ),
-                      //   ),
-                      // ),
                       SizedBox(height: 10.h),
                     ],
                   ),

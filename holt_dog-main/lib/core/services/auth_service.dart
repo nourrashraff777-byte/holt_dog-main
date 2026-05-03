@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import '../../features/auth/models/user_model.dart';
 
 class AuthService {
   FirebaseAuth get _auth => FirebaseAuth.instance;
@@ -69,6 +70,21 @@ class AuthService {
   /// Sign out the current user.
   Future<void> logout() async {
     await _auth.signOut();
+  }
+
+  /// Fetches the authenticated user's profile from the Firestore 'users' collection.
+  Future<UserModel?> fetchUserData(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      if (!doc.exists || doc.data() == null) return null;
+      return UserModel.fromFirestore(uid, doc.data()!);
+    } catch (e) {
+      debugPrint('FetchUserData Error: $e');
+      return null;
+    }
   }
 
   /// Send a password-reset email.

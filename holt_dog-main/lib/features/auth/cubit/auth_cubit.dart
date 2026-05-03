@@ -10,34 +10,47 @@ class AuthCubit extends Cubit<AuthState> {
   // Login
   Future<void> login(String email, String password) async {
     emit(AuthLoading());
-    final result = await _authService.login(email, password);
-    if (result != null) {
-      emit(Authenticated(result.user!.uid));
-    } else {
+    final credential = await _authService.login(email, password);
+    if (credential == null || credential.user == null) {
       emit(const AuthError('Login failed. Please check your credentials.'));
+      return;
     }
+    final uid = credential.user!.uid;
+    final userModel = await _authService.fetchUserData(uid);
+    if (userModel == null) {
+      emit(const AuthError('Failed to load user data. Please try again.'));
+      return;
+    }
+    emit(Authenticated(userModel));
   }
 
   // Signup
-  Future<void> signup(
-      {required String name,
-      required String phone,
-      required String email,
-      required String password,
-      required String role}) async {
+  Future<void> signup({
+    required String name,
+    required String phone,
+    required String email,
+    required String password,
+    required String role,
+  }) async {
     emit(AuthLoading());
-    final result = await _authService.signUp(
+    final credential = await _authService.signUp(
       name: name,
       phone: phone,
       email: email,
       password: password,
       role: role,
     );
-    if (result != null) {
-      emit(Authenticated(result.user!.uid));
-    } else {
+    if (credential == null || credential.user == null) {
       emit(const AuthError('Signup failed. Email may be already in use.'));
+      return;
     }
+    final uid = credential.user!.uid;
+    final userModel = await _authService.fetchUserData(uid);
+    if (userModel == null) {
+      emit(const AuthError('Failed to load user data. Please try again.'));
+      return;
+    }
+    emit(Authenticated(userModel));
   }
 
   // Logout
@@ -51,7 +64,7 @@ class AuthCubit extends Cubit<AuthState> {
     emit(AuthLoading());
     try {
       await _authService.sendPasswordResetEmail(email);
-      emit(AuthInitial()); // Reset to initial state or success state
+      emit(AuthInitial());
     } catch (e) {
       emit(AuthError('Failed to send reset email: ${e.toString()}'));
     }
