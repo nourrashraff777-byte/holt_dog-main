@@ -320,9 +320,19 @@ class _ResultCard extends StatelessWidget {
 
             const SizedBox(height: 14),
 
-            // ── Reported by row (Insurance specific) ──────────────────────
+            // ── Uploaded by section (Insurance specific) ──────────────────────
             if (reporterId.isNotEmpty) ...[
-              _ReportedByRow(userId: reporterId),
+              const SizedBox(height: 12),
+              const Text(
+                'Uploaded By',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF666666),
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.4),
+              ),
+              const SizedBox(height: 8),
+              _UploadedByCard(userId: reporterId, dateStr: dateStr),
               const SizedBox(height: 14),
             ],
 
@@ -371,11 +381,12 @@ class _ResultCard extends StatelessWidget {
   }
 }
 
-// ─── "Reported by" chip — looks up name from users/{userId} ─────────────────
+// ─── "Uploaded By" card — shows user details with name, email, and upload date ─────────
 
-class _ReportedByRow extends StatelessWidget {
+class _UploadedByCard extends StatelessWidget {
   final String userId;
-  const _ReportedByRow({required this.userId});
+  final String dateStr;
+  const _UploadedByCard({required this.userId, required this.dateStr});
 
   @override
   Widget build(BuildContext context) {
@@ -384,64 +395,90 @@ class _ReportedByRow extends StatelessWidget {
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
           return Container(
-            height: 28,
-            width: 140,
+            height: 80,
             decoration: BoxDecoration(
-              color: AppColors.primaryPurple.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
+              color: Colors.grey[100],
+              borderRadius: BorderRadius.circular(12),
             ),
           );
         }
 
         String name = '';
+        String email = '';
         if (snap.hasData && snap.data!.exists) {
           final data = snap.data!.data() as Map<String, dynamic>? ?? {};
           name = (data['displayName'] ??
                   data['name'] ??
                   data['username'] ??
-                  data['email'] ??
                   '')
               .toString()
               .trim();
+          email = (data['email'] ?? '').toString().trim();
         }
 
         if (name.isEmpty) return const SizedBox.shrink();
 
         return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.primaryPurple.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFFF3E5F5),
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.primaryPurple.withValues(alpha: 0.2),
+              color: const Color(0xFFE1BEE7),
             ),
           ),
           child: Row(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.account_circle_outlined,
-                size: 16,
-                color: Color(0xFF4A148C),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Reported by  ',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryPurple.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_circle_outlined,
+                  size: 24,
+                  color: Color(0xFF4A148C),
                 ),
               ),
-              Flexible(
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF4A148C),
-                    fontWeight: FontWeight.w800,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: Color(0xFF3A3A3A),
+                        fontWeight: FontWeight.w800,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Uploaded: $dateStr',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
