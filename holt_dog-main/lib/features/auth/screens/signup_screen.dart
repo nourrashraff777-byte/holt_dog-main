@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:holt_dog/features/charity_side/screens/charity_home_screen.dart';
 import 'package:holt_dog/features/doctor_side/screens/doctor_home_screen.dart';
+import 'package:holt_dog/features/insurance_side/screens/insurance_home_screen.dart';
 import 'package:holt_dog/features/retailer_side/screens/retailer_home_screen.dart';
 import 'package:holt_dog/features/user_side/user_home/screens/user_home_screen.dart';
 import '../../../core/constants/app_colors.dart';
@@ -49,6 +50,8 @@ class _SignupScreenState extends State<SignupScreen> {
   void _navigateBySelectedUserType() {
     switch (_selectedUserType) {
       case 'Insurance Agent':
+        context.go(InsuranceHomeScreen.routeName);
+        break;
       case 'Retailer':
         context.go(RetailerHomeScreen.routeName);
         break;

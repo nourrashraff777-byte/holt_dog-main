@@ -163,19 +163,19 @@ class _InsuranceReportCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (report.uploaderName.isNotEmpty)
-                          Text(
-                            report.uploaderName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2F2F2F)),
-                          ),
-                        if (report.uploaderEmail.isNotEmpty)
-                          Text(
-                            report.uploaderEmail,
-                            style: const TextStyle(
-                                color: Color(0xFF616161), fontSize: 12),
-                          ),
+                        // if (report.uploaderName.isNotEmpty)
+                        //   Text(
+                        //     report.uploaderName,
+                        //     style: const TextStyle(
+                        //         fontWeight: FontWeight.w700,
+                        //         color: Color(0xFF2F2F2F)),
+                        //   ),
+                        // if (report.uploaderEmail.isNotEmpty)
+                        //   Text(
+                        //     report.uploaderEmail,
+                        //     style: const TextStyle(
+                        //         color: Color(0xFF616161), fontSize: 12),
+                        //   ),
                         Text(
                           'Uploaded: $dateStr',
                           style: const TextStyle(
