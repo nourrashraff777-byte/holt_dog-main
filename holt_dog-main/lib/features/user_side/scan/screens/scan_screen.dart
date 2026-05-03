@@ -49,6 +49,40 @@ class _ScanScreenState extends State<ScanScreen> {
   String _statusMessage = 'Select a dog image to start the scan';
   Map<String, dynamic>? _resultData;
   bool _saved = false;
+  String _userName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserName();
+  }
+
+  Future<void> _fetchUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        final name = (data['displayName'] ??
+                data['name'] ??
+                data['username'] ??
+                user.displayName ??
+                '')
+            .toString()
+            .trim();
+
+        if (mounted) {
+          setState(() => _userName = name);
+        }
+      }
+    } catch (_) {}
+  }
 
   Future<void> _pickImage() async {
     final XFile? pickedFile = await _imagePicker.pickImage(
@@ -541,7 +575,7 @@ class _ScanScreenState extends State<ScanScreen> {
       backgroundColor: Colors.white,
       body: Column(
         children: [
-          const UserQuickActionHeader(userName: '', showSearch: false),
+          UserQuickActionHeader(userName: _userName, showSearch: false),
           Expanded(
             child: SingleChildScrollView(
               padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
