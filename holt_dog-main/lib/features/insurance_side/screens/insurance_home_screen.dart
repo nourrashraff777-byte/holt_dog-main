@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:holt_dog/features/user_side/user_home/screens/custom_drawer.dart';
+import 'package:holt_dog/core/widgets/app_drawer.dart';
+import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
+import 'package:holt_dog/features/auth/cubit/auth_state.dart';
+import 'package:holt_dog/features/auth/models/user_model.dart';
 import 'package:holt_dog/features/insurance_side/widgets/insurance_quick_actions_widgets.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
@@ -19,10 +23,13 @@ class InsuranceHomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<InsuranceHomeScreen> {
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AuthCubit>().state;
+    final UserModel? user = state is Authenticated ? state.user : null;
+
     return Scaffold(
-      drawer: const CustomDrawer(),
+      drawer: user != null ? AppDrawer(user: user) : const Drawer(),
       backgroundColor: Colors.white,
-      body: const _InsuranceHomeBody(),
+      body: _InsuranceHomeBody(userName: user?.name ?? ''),
       bottomNavigationBar: _InsuranceNavBarSimple(),
     );
   }
@@ -87,7 +94,9 @@ class _InsuranceNavBarSimple extends StatelessWidget {
 // ─── Insurance home body — streams from 'scans' ───────────────────────────────
 
 class _InsuranceHomeBody extends StatelessWidget {
-  const _InsuranceHomeBody();
+  final String userName;
+
+  const _InsuranceHomeBody({this.userName = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -112,7 +121,7 @@ class _InsuranceHomeBody extends StatelessWidget {
         return SingleChildScrollView(
           child: Column(
             children: [
-              const InsuranceQuickActionHeader(userName: '', showSearch: true),
+              InsuranceQuickActionHeader(userName: userName, showSearch: true),
               if (docs.isEmpty)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 60.h),
