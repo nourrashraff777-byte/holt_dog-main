@@ -41,7 +41,7 @@ class HoltDogApp extends StatelessWidget {
         child: MultiBlocProvider(
           providers: [
             BlocProvider(
-              create: (context) => AuthCubit(authService),
+              create: (context) => AuthCubit(authService)..checkAuthStatus(),
             ),
             BlocProvider(
               create: (context) =>

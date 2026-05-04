@@ -9,6 +9,9 @@ class AuthService {
   /// Stream of the current authenticated user (null when logged out).
   Stream<User?> get user => _auth.authStateChanges();
 
+  /// Get the current authenticated user synchronously.
+  User? get currentUser => _auth.currentUser;
+
   /// Sign up with email + password. [role] can be stored later with the user profile.
   Future<UserCredential?> signUp({
     required String name,

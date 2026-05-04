@@ -7,6 +7,19 @@ class AuthCubit extends Cubit<AuthState> {
 
   AuthCubit(this._authService) : super(AuthInitial());
 
+  Future<void> checkAuthStatus() async {
+    emit(AuthLoading());
+    final user = _authService.currentUser;
+    if (user != null) {
+      final userModel = await _authService.fetchUserData(user.uid);
+      if (userModel != null) {
+        emit(Authenticated(userModel));
+        return;
+      }
+    }
+    emit(Unauthenticated());
+  }
+
   // Login
   Future<void> login(String email, String password) async {
     emit(AuthLoading());

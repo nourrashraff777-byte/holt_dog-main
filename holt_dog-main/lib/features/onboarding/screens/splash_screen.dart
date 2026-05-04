@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:holt_dog/features/charity_side/screens/charity_home_screen.dart';
+import 'package:holt_dog/features/doctor_side/screens/doctor_home_screen.dart';
+import 'package:holt_dog/features/insurance_side/screens/insurance_home_screen.dart';
+import 'package:holt_dog/features/retailer_side/screens/retailer_home_screen.dart';
+import 'package:holt_dog/features/user_side/user_home/screens/user_home_screen.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
 import '../../../core/routes/app_router.dart';
+import '../../auth/cubit/auth_cubit.dart';
+import '../../auth/cubit/auth_state.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -16,13 +24,56 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    _navigateToNext();
+    _initializeApp();
   }
 
-  void _navigateToNext() async {
+  Future<void> _initializeApp() async {
+    // Wait for at least 3 seconds for the splash screen to show
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
-      context.go(AppRouter.onboarding);
+    
+    if (!mounted) return;
+    
+    final authCubit = context.read<AuthCubit>();
+    final state = authCubit.state;
+    
+    if (state is AuthInitial || state is AuthLoading) {
+      // If still loading, wait for the next state
+      authCubit.stream.listen((newState) {
+        if (!mounted) return;
+        if (newState is Authenticated) {
+          _navigateByRole(newState.user.role);
+        } else if (newState is Unauthenticated || newState is AuthError) {
+          context.go(AppRouter.onboarding);
+        }
+      });
+    } else {
+      // Already finished loading
+      if (state is Authenticated) {
+        _navigateByRole(state.user.role);
+      } else {
+        context.go(AppRouter.onboarding);
+      }
+    }
+  }
+
+  void _navigateByRole(String role) {
+    switch (role) {
+      case 'insurance_agent':
+      case 'Insurance Agent':
+        context.go(InsuranceHomeScreen.routeName);
+        break;
+      case 'retailer':
+      case 'Retailer':
+        context.go(RetailerHomeScreen.routeName);
+        break;
+      case 'charity':
+        context.go(CharityHomeScreen.routeName);
+        break;
+      case 'doctor':
+        context.go(DoctorHomeScreen.routeName);
+        break;
+      default:
+        context.go(UserHomeScreen.routeName);
     }
   }
 
