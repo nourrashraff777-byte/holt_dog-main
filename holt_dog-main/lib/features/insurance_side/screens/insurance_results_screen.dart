@@ -65,8 +65,11 @@ class _InsuranceReportCard extends StatelessWidget {
   final Report report;
   const _InsuranceReportCard({required this.report});
 
-  Color _confidenceColor(int c) =>
-      c >= 90 ? Colors.green : c >= 75 ? Colors.orange : Colors.red;
+  Color _confidenceColor(int c) => c >= 90
+      ? Colors.green
+      : c >= 75
+          ? Colors.orange
+          : Colors.red;
 
   @override
   Widget build(BuildContext context) {
@@ -258,8 +261,7 @@ class _InsuranceReportCard extends StatelessWidget {
               children: [
                 Text(label,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF3A3A3A))),
+                        fontWeight: FontWeight.w700, color: Color(0xFF3A3A3A))),
                 const SizedBox(height: 4),
                 Text(value,
                     style: TextStyle(
@@ -321,8 +323,7 @@ class _StatusButtons extends StatelessWidget {
           onTap: active ? null : () => _set(o.$1),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: active ? o.$3 : o.$3.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),

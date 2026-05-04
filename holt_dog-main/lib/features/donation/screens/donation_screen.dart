@@ -83,8 +83,7 @@ class DonationScreen extends StatelessWidget {
                         width: 250,
                         child: ElevatedButton(
                           onPressed: () {
-                            context.push(
-                                PaymentProcessingScreen.routeName);
+                            context.push(PaymentProcessingScreen.routeName);
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFE0E0F8),
@@ -141,17 +140,20 @@ class DonationScreen extends StatelessWidget {
             ),
           ),
         ),
-        isBackButtonVisible ? Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 40),
-          child: IconButton(
-            onPressed: () => context.pop(),
-            icon: Icon(
-              Icons.arrow_back_ios_new,
-              size: 20.sp,
-              color: Colors.white,
-            ),
-          ),
-        ) : const SizedBox.shrink(),
+        isBackButtonVisible
+            ? Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6.0, vertical: 40),
+                child: IconButton(
+                  onPressed: () => context.pop(),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new,
+                    size: 20.sp,
+                    color: Colors.white,
+                  ),
+                ),
+              )
+            : const SizedBox.shrink(),
       ],
     );
   }
