@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:holt_dog/core/routes/app_router.dart';
-import 'package:holt_dog/features/donation/screens/e_wallet_screen.dart';
+import 'package:holt_dog/core/widgets/header_clipper.dart';
+import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
+import 'package:holt_dog/features/auth/cubit/auth_state.dart';
 import 'package:holt_dog/features/user_side/user_home/screens/user_home_screen.dart';
 
 // ==========================================
@@ -15,14 +18,65 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _obscurePassword = true;
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize fields with current user data
+    final authState = context.read<AuthCubit>().state;
+    if (authState is Authenticated) {
+      _nameController.text = authState.user.name;
+      _phoneController.text = authState.user.phone;
+      _emailController.text = authState.user.email;
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  void _handleSave() {
+    if (_formKey.currentState!.validate()) {
+      context.read<AuthCubit>().updateProfile(
+            name: _nameController.text.trim(),
+            phone: _phoneController.text.trim(),
+          );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     const primary = Color(0xFF4A148C);
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
+    return BlocConsumer<AuthCubit, AuthState>(
+      listener: (context, state) {
+        if (state is AuthError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        } else if (state is Authenticated) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile updated successfully!')),
+          );
+          Navigator.pop(context); // Go back after successful update
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is AuthLoading;
+
+        return Scaffold(
+          body: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                children: [
             Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.topCenter,
@@ -62,14 +116,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           backgroundColor: Colors.grey[300],
                           child: const Icon(Icons.person,
                               size: 60, color: Colors.white)),
-                      const Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: CircleAvatar(
-                              radius: 18,
-                              backgroundColor: primary,
-                              child: Icon(Icons.camera_alt,
-                                  size: 16, color: Colors.white))),
+                      // const Positioned(
+                      //     bottom: 0,
+                      //     right: 0,
+                      //     child: CircleAvatar(
+                      //         radius: 18,
+                      //         backgroundColor: primary,
+                      //         child: Icon(Icons.camera_alt,
+                      //             size: 16, color: Colors.white))),
                     ],
                   ),
                 ),
@@ -80,11 +134,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 24.0),
               child: Column(
                 children: [
-                  _buildField('Username', Icons.alternate_email),
-                  _buildField('Full Name', Icons.person_outline),
-                  _buildField('Email', Icons.email_outlined),
-                  _buildField('Password', Icons.lock_outline, isPassword: true),
-                  _buildField('Phone Number', Icons.phone_outlined),
+                  _buildField('Full Name', Icons.person_outline, controller: _nameController),
+                  _buildField('Email', Icons.email_outlined, controller: _emailController, readOnly: true),
+                  _buildField('Phone Number', Icons.phone_outlined, controller: _phoneController),
                   const SizedBox(height: 30),
                   SizedBox(
                     width: double.infinity,
@@ -95,9 +147,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(30))),
-                      onPressed: () {},
-                      child: const Text('Save Changes',
-                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: isLoading ? null : _handleSave,
+                      child: isLoading 
+                          ? const SizedBox(
+                              height: 20, 
+                              width: 20, 
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                            )
+                          : const Text('Save Changes',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ),
                 ],
@@ -106,18 +164,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+},
+);
+}
 
-  Widget _buildField(String label, IconData icon, {bool isPassword = false}) {
+  Widget _buildField(String label, IconData icon, {bool isPassword = false, TextEditingController? controller, bool readOnly = false}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-          color: Colors.white,
+          color: readOnly ? Colors.grey[200] : Colors.white,
           borderRadius: BorderRadius.circular(30),
           boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 8)]),
       child: TextFormField(
+        controller: controller,
         obscureText: isPassword && _obscurePassword,
+        readOnly: readOnly,
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: Icon(icon, color: const Color(0xFF4A148C)),

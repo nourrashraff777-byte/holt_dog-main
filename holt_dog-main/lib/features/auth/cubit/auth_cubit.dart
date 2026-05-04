@@ -59,6 +59,38 @@ class AuthCubit extends Cubit<AuthState> {
     emit(Unauthenticated());
   }
 
+  // Update Profile
+  Future<void> updateProfile({
+    required String name,
+    required String phone,
+  }) async {
+    final currentState = state;
+    if (currentState is! Authenticated) return;
+
+    emit(AuthLoading());
+    final uid = currentState.user.id;
+    
+    final success = await _authService.updateUserProfile(
+      uid: uid,
+      name: name,
+      phone: phone,
+    );
+
+    if (success) {
+      // Fetch the updated user data
+      final updatedUserModel = await _authService.fetchUserData(uid);
+      if (updatedUserModel != null) {
+        emit(Authenticated(updatedUserModel));
+      } else {
+        emit(const AuthError('Failed to refresh user data after update.'));
+        emit(currentState); // Revert to previous state
+      }
+    } else {
+      emit(const AuthError('Failed to update profile. Please try again.'));
+      emit(currentState); // Revert to previous state
+    }
+  }
+
   // Send Reset Password Email
   Future<void> sendResetEmail(String email) async {
     emit(AuthLoading());

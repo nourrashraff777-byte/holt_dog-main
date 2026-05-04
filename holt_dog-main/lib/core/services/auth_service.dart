@@ -87,6 +87,27 @@ class AuthService {
     }
   }
 
+  /// Updates the authenticated user's profile in the Firestore 'users' collection.
+  Future<bool> updateUserProfile({
+    required String uid,
+    required String name,
+    required String phone,
+  }) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'name': name,
+        'phone': phone,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      // Also update the display name in Firebase Auth
+      await _auth.currentUser?.updateDisplayName(name);
+      return true;
+    } catch (e) {
+      debugPrint('UpdateUserProfile Error: $e');
+      return false;
+    }
+  }
+
   /// Send a password-reset email.
   Future<void> sendPasswordResetEmail(String email) async {
     try {
