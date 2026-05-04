@@ -13,6 +13,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/services/location_service.dart';
 import '../../user_home/widgets/user_quick_actions_widgets.dart';
+import '../presentation/widgets/image_source_bottom_sheet.dart';
 
 class ScanScreen extends StatefulWidget {
   const ScanScreen({super.key});
@@ -84,9 +85,9 @@ class _ScanScreenState extends State<ScanScreen> {
     } catch (_) {}
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImage(ImageSource source) async {
     final XFile? pickedFile = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
     );
 
     if (pickedFile == null) return;
@@ -97,6 +98,22 @@ class _ScanScreenState extends State<ScanScreen> {
       _resultData = null;
       _saved = false;
     });
+  }
+
+  void _showImageSourceSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (bottomSheetContext) {
+        return ImageSourceBottomSheet(
+          onSourceSelected: (source) {
+            Navigator.pop(bottomSheetContext);
+            _pickImage(source);
+          },
+        );
+      },
+    );
   }
 
   Future<void> _analyzeImage() async {
@@ -631,9 +648,9 @@ class _ScanScreenState extends State<ScanScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: _pickImage,
+                      onPressed: () => _showImageSourceSheet(context),
                       icon: const Icon(Icons.image_outlined),
-                      label: const Text('Upload Image from gallery'),
+                      label: const Text('Choose Dog Image'),
                     ),
                   ),
                   SizedBox(height: 12.h),
