@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:holt_dog/core/widgets/app_drawer.dart';
 import 'package:intl/intl.dart';
 import 'package:holt_dog/features/insurance_side/widgets/insurance_quick_actions_widgets.dart';
-import 'package:holt_dog/features/user_side/user_home/screens/custom_drawer.dart';
 import '../models/report_model.dart';
 
 class InsuranceResultsScreen extends StatelessWidget {
@@ -11,7 +11,6 @@ class InsuranceResultsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const CustomDrawer(),
       backgroundColor: const Color(0xFFF5F5F5),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -166,19 +165,19 @@ class _InsuranceReportCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (report.uploaderName.isNotEmpty)
-                          Text(
-                            report.uploaderName,
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF2F2F2F)),
-                          ),
-                        if (report.uploaderEmail.isNotEmpty)
-                          Text(
-                            report.uploaderEmail,
-                            style: const TextStyle(
-                                color: Color(0xFF616161), fontSize: 12),
-                          ),
+                        // if (report.uploaderName.isNotEmpty)
+                        //   Text(
+                        //     report.uploaderName,
+                        //     style: const TextStyle(
+                        //         fontWeight: FontWeight.w700,
+                        //         color: Color(0xFF2F2F2F)),
+                        //   ),
+                        // if (report.uploaderEmail.isNotEmpty)
+                        //   Text(
+                        //     report.uploaderEmail,
+                        //     style: const TextStyle(
+                        //         color: Color(0xFF616161), fontSize: 12),
+                        //   ),
                         Text(
                           'Uploaded: $dateStr',
                           style: const TextStyle(

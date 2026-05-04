@@ -25,7 +25,7 @@ class _PaymentProcessingScreenState extends State<PaymentProcessingScreen> {
     Timer(const Duration(seconds: 3), () {
       if (!mounted) return;
       // TODO: Replace with actual result from your payment gateway.
-      final bool paymentSuccess = true;
+      const bool paymentSuccess = true;
       if (paymentSuccess) {
         context.go(PaymentSuccessScreen.routeName);
       } else {

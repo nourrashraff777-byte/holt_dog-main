@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:holt_dog/core/widgets/app_drawer.dart';
+import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
+import 'package:holt_dog/features/auth/cubit/auth_state.dart';
+import 'package:holt_dog/features/auth/models/user_model.dart';
 import 'package:holt_dog/features/charity_side/screens/marketplace_screen.dart';
-import 'package:holt_dog/features/user_side/user_home/screens/custom_drawer.dart';
 import 'package:holt_dog/features/retailer_side/screens/retailer_orders_screen.dart';
 import '../widgets/retailer_nav_bar.dart';
 
@@ -13,7 +17,7 @@ class RetailerHomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<RetailerHomeScreen> {
-  int _currentIndex = 0; // Default to Home (Center tab)
+  int _currentIndex = 0;
 
   final List<Widget> _screens = [
     const MarketplaceScreen(),
@@ -22,8 +26,11 @@ class _HomeScreenState extends State<RetailerHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AuthCubit>().state;
+    final UserModel? user = state is Authenticated ? state.user : null;
+
     return Scaffold(
-      drawer: const CustomDrawer(),
+      drawer: user != null ? AppDrawer(user: user) : const Drawer(),
       backgroundColor: Colors.white,
       extendBody: true,
       body: IndexedStack(

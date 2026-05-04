@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:holt_dog/core/widgets/app_drawer.dart';
+import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
+import 'package:holt_dog/features/auth/cubit/auth_state.dart';
+import 'package:holt_dog/features/auth/models/user_model.dart';
 import 'package:holt_dog/features/charity_side/screens/marketplace_screen.dart';
 import 'package:holt_dog/features/charity_side/screens/results_screen.dart';
 import 'package:holt_dog/features/donation/screens/donation_screen.dart';
-import 'package:holt_dog/features/user_side/user_home/screens/custom_drawer.dart';
 import '../widgets/charity_quick_actions_widgets.dart';
 import '../widgets/home_widgets.dart';
 import '../widgets/charity_nav_bar.dart';
@@ -22,25 +26,28 @@ class _HomeScreenState extends State<CharityHomeScreen> {
   int _currentIndex = 1;
   int _marketCartCount = 0;
 
-  late final List<Widget> _screens = [
-    const DonationScreen(),
-    const _HomeBody(),
-    const ResultsScreen(),
-    MarketplaceScreen(
-      onCartItemCountChanged: (count) =>
-          setState(() => _marketCartCount = count),
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AuthCubit>().state;
+    final UserModel? user = state is Authenticated ? state.user : null;
+
+    final List<Widget> screens = [
+      const DonationScreen(),
+      _HomeBody(userName: user?.name ?? ''),
+      const ResultsScreen(),
+      MarketplaceScreen(
+        onCartItemCountChanged: (count) =>
+            setState(() => _marketCartCount = count),
+      ),
+    ];
+
     return Scaffold(
-      drawer: const CustomDrawer(),
+      drawer: user != null ? AppDrawer(user: user) : const Drawer(),
       backgroundColor: Colors.white,
       extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: CharityNavBar(
         currentIndex: _currentIndex,
@@ -52,7 +59,9 @@ class _HomeScreenState extends State<CharityHomeScreen> {
 }
 
 class _HomeBody extends StatelessWidget {
-  const _HomeBody();
+  final String userName;
+
+  const _HomeBody({this.userName = ''});
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +87,7 @@ class _HomeBody extends StatelessWidget {
         return SingleChildScrollView(
           child: Column(
             children: [
-              const CharityQuickActionHeader(userName: '', showSearch: true),
+              CharityQuickActionHeader(userName: userName, showSearch: true),
               if (reports.isEmpty)
                 Padding(
                   padding: EdgeInsets.symmetric(vertical: 60.h),

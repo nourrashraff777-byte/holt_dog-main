@@ -1,9 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import 'package:holt_dog/features/user_side/user_home/screens/custom_drawer.dart';
+import 'package:holt_dog/core/widgets/app_drawer.dart';
+import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
+import 'package:holt_dog/features/auth/cubit/auth_state.dart';
+import 'package:holt_dog/features/auth/models/user_model.dart';
 import 'package:holt_dog/features/user_side/reports/screens/my_report_screen.dart'
     hide Report;
 import '../widgets/user_quick_actions_widgets.dart';
@@ -25,23 +29,26 @@ class UserHomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<UserHomeScreen> {
-  int _currentIndex = 1; // Default to Home (Center tab)
-
-  final List<Widget> _screens = [
-    const ScanScreen(),
-    const _HomeBody(), // Extracted main content
-    const MapScreen(),
-  ];
+  int _currentIndex = 1;
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AuthCubit>().state;
+    final UserModel? user = state is Authenticated ? state.user : null;
+
+    final List<Widget> screens = [
+      const ScanScreen(),
+      _HomeBody(userName: user?.name ?? ''),
+      const MapScreen(),
+    ];
+
     return Scaffold(
-      drawer: const CustomDrawer(),
+      drawer: user != null ? AppDrawer(user: user) : const Drawer(),
       backgroundColor: Colors.white,
       extendBody: true,
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: screens,
       ),
       bottomNavigationBar: UserNavBar(
         currentIndex: _currentIndex,
@@ -52,14 +59,16 @@ class _HomeScreenState extends State<UserHomeScreen> {
 }
 
 class _HomeBody extends StatelessWidget {
-  const _HomeBody();
+  final String userName;
+
+  const _HomeBody({this.userName = ''});
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          const UserQuickActionHeader(userName: '', showSearch: true),
+          UserQuickActionHeader(userName: userName, showSearch: true),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: 30.w),
             child: Column(

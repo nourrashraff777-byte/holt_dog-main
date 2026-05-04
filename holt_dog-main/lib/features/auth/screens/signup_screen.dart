@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:holt_dog/features/charity_side/screens/charity_home_screen.dart';
 import 'package:holt_dog/features/doctor_side/screens/doctor_home_screen.dart';
+import 'package:holt_dog/features/insurance_side/screens/insurance_home_screen.dart';
 import 'package:holt_dog/features/retailer_side/screens/retailer_home_screen.dart';
 import 'package:holt_dog/features/user_side/user_home/screens/user_home_screen.dart';
 import '../../../core/constants/app_colors.dart';
@@ -26,6 +27,7 @@ class SignupScreen extends StatefulWidget {
 class _SignupScreenState extends State<SignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String _selectedUserType = 'User';
@@ -49,6 +51,8 @@ class _SignupScreenState extends State<SignupScreen> {
   void _navigateBySelectedUserType() {
     switch (_selectedUserType) {
       case 'Insurance Agent':
+        context.go(InsuranceHomeScreen.routeName);
+        break;
       case 'Retailer':
         context.go(RetailerHomeScreen.routeName);
         break;
@@ -68,6 +72,7 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -76,8 +81,10 @@ class _SignupScreenState extends State<SignupScreen> {
   void _handleSignup() {
     if (_formKey.currentState!.validate()) {
       context.read<AuthCubit>().signup(
-            _emailController.text.trim(),
-            _passwordController.text.trim(),
+            name: _nameController.text.trim(),
+            phone: _phoneController.text.trim(),
+            email: _emailController.text.trim(),
+            password: _passwordController.text.trim(),
             role: _roleToApi(_selectedUserType),
           );
     }
@@ -123,6 +130,23 @@ class _SignupScreenState extends State<SignupScreen> {
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Please enter your name';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 20.h),
+                      CustomTextField(
+                        label: 'Phone Number :',
+                        hint: 'Enter Your Phone Number',
+                        controller: _phoneController,
+                        prefixIcon: null,
+                        suffixIcon: const Icon(Icons.phone,
+                            color: AppColors.textSecondary),
+                        textInputAction: TextInputAction.next,
+                        keyboardType: TextInputType.phone,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your phone number';
                           }
                           return null;
                         },

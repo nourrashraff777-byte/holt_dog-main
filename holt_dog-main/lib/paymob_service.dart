@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 class PaymobService {
   static const String _apiKey =
       "ZXlKaGJHY2lPaUpJVXpVeE1pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SmpiR0Z6Y3lJNklrMWxjbU5vWVc1MElpd2ljSEp2Wm1sc1pWOXdheUk2TVRFMU5USTJOeXdpYm1GdFpTSTZJbWx1YVhScFlXd2lmUS5BY2ppbnJkQkxqcFZTbUJ1TjdFYTcyTkEyUDV1LWg0NW1YMENUS1BNcW9hVm52R19aaVZyc040cGR4N2Y5WmRnbHlRT2NKUUwtWjYybm5veFZPbjZaUQ==";
-  static const String _integrationId = "YOUR_INTEGRATION_ID";
+  static const int _integrationId = 5626439;
   static const String _iframeId = "1035526";
 
   ///  تبدأ عملية الدفع وتعود بـ URL الـ WebView
@@ -47,12 +47,11 @@ class PaymobService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'api_key': _apiKey}),
     );
-
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body)['token'];
-    } else {
-      throw Exception('Failed to get Auth Token');
     }
+    print('[Paymob] Auth Token failed (${response.statusCode}): ${response.body}');
+    throw Exception('Failed to get Auth Token: ${response.statusCode}');
   }
 
   Future<int> _createOrder(String token, double amount) async {
@@ -62,17 +61,16 @@ class PaymobService {
       body: jsonEncode({
         'auth_token': token,
         'delivery_needed': 'false',
-        'amount_cents': (amount * 100).toInt().toString(), //
+        'amount_cents': (amount * 100).toInt(),
         'currency': 'EGP',
         'items': [],
       }),
     );
-
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body)['id'];
-    } else {
-      throw Exception('Failed to create order');
     }
+    print('[Paymob] Create Order failed (${response.statusCode}): ${response.body}');
+    throw Exception('Failed to create order: ${response.statusCode}');
   }
 
   Future<String> _getPaymentKey({
@@ -88,34 +86,33 @@ class PaymobService {
       Uri.parse('https://accept.paymob.com/api/acceptance/payment_keys'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        "auth_token": authToken,
-        "amount_cents": (amount * 100).toInt().toString(),
-        "expiration": 3600,
-        "order_id": orderId.toString(),
-        "billing_data": {
-          "apartment": "NA",
-          "email": email,
-          "floor": "NA",
-          "first_name": firstName,
-          "street": "NA",
-          "building": "NA",
-          "phone_number": phoneNumber,
-          "shipping_method": "NA",
-          "postal_code": "NA",
-          "city": "NA",
-          "country": "EG",
-          "last_name": lastName,
-          "state": "NA"
+        'auth_token': authToken,
+        'amount_cents': (amount * 100).toInt(),
+        'expiration': 3600,
+        'order_id': orderId,
+        'billing_data': {
+          'apartment': 'NA',
+          'email': email,
+          'floor': 'NA',
+          'first_name': firstName,
+          'street': 'NA',
+          'building': 'NA',
+          'phone_number': phoneNumber,
+          'shipping_method': 'NA',
+          'postal_code': 'NA',
+          'city': 'NA',
+          'country': 'EG',
+          'last_name': lastName,
+          'state': 'NA',
         },
-        "currency": "EGP",
-        "integration_id": _integrationId,
+        'currency': 'EGP',
+        'integration_id': _integrationId, // must be an integer
       }),
     );
-
     if (response.statusCode == 201 || response.statusCode == 200) {
       return jsonDecode(response.body)['token'];
-    } else {
-      throw Exception('Failed to get Payment Key');
     }
+    print('[Paymob] Payment Key failed (${response.statusCode}): ${response.body}');
+    throw Exception('Failed to get Payment Key: ${response.statusCode}');
   }
 }
