@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/services/location_service.dart';
@@ -112,8 +113,8 @@ class _VetsScreenState extends State<VetsScreen> {
     if (_userLat == null || _userLng == null || _vets.isEmpty) return;
     for (final v in _vets) {
       if (v.lat != null && v.lng != null) {
-        v.distanceKm = LocationService.distanceKm(
-            _userLat!, _userLng!, v.lat!, v.lng!);
+        v.distanceKm =
+            LocationService.distanceKm(_userLat!, _userLng!, v.lat!, v.lng!);
       } else {
         v.distanceKm = null;
       }
@@ -147,7 +148,7 @@ class _VetsScreenState extends State<VetsScreen> {
             showSearch: false,
             showBackButton: true,
             title: 'Nearby Veterinarians',
-            subtitle: 'get fast veterinary assistance',
+            subtitle: 'Emergency call to nearby vets',
           ),
           Expanded(
             child: RefreshIndicator(
@@ -172,7 +173,7 @@ class _VetsScreenState extends State<VetsScreen> {
                     if (_loadingVets)
                       Padding(
                         padding: EdgeInsets.symmetric(vertical: 40.h),
-                        child: Center(
+                        child: const Center(
                           child: CircularProgressIndicator(
                               color: AppColors.primaryMagenta),
                         ),
@@ -264,7 +265,7 @@ class _LocationInfoCard extends StatelessWidget {
                 ? SizedBox(
                     width: 16.w,
                     height: 16.w,
-                    child: CircularProgressIndicator(
+                    child: const CircularProgressIndicator(
                       strokeWidth: 2,
                       color: Colors.white,
                     ),
@@ -411,23 +412,34 @@ class _VetCard extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            padding: EdgeInsets.all(12.w),
-            decoration: BoxDecoration(
-              color: statusColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: statusColor.withValues(alpha: 0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+          InkWell(
+            onTap: () => _launchPhoneCall(vet.phone),
+            borderRadius: BorderRadius.circular(50.r),
+            child: Container(
+              padding: EdgeInsets.all(12.w),
+              decoration: BoxDecoration(
+                color: statusColor,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: statusColor.withValues(alpha: 0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Icon(Icons.phone_in_talk, color: Colors.white, size: 28.w),
             ),
-            child: Icon(Icons.phone_in_talk, color: Colors.white, size: 28.w),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _launchPhoneCall(String phoneNumber) async {
+    final Uri phoneUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(phoneUri)) {
+      await launchUrl(phoneUri, mode: LaunchMode.externalApplication);
+    }
   }
 }

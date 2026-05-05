@@ -13,7 +13,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>holt_dog</string>
+	<string>Holt Dog</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -55,5 +55,9 @@
 	<string>This app needs photo library access to upload reports and profile images.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access for recording video reports.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+	</array>
 </dict>
 </plist>
