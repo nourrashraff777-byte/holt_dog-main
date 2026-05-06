@@ -6,7 +6,7 @@ import 'package:holt_dog/core/widgets/app_drawer.dart';
 import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
 import 'package:holt_dog/features/auth/cubit/auth_state.dart';
 import 'package:holt_dog/features/auth/models/user_model.dart';
-import 'package:holt_dog/features/charity_side/screens/marketplace_screen.dart';
+import 'package:holt_dog/features/marketplace/presentation/screens/marketplace_screen.dart';
 import 'package:holt_dog/features/charity_side/screens/results_screen.dart';
 import 'package:holt_dog/features/donation/screens/donation_screen.dart';
 import '../widgets/charity_quick_actions_widgets.dart';

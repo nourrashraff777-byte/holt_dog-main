@@ -85,8 +85,8 @@ class _HomeBody extends StatelessWidget {
                 ),
                 SizedBox(height: 30.h),
                 QuickActionCard(
-                  title: 'Nearby Vets',
-                  icon: Icons.pets,
+                  title: 'Emergency Call',
+                  icon: Icons.call,
                   onTap: () {
                     Navigator.push(
                       context,
@@ -198,10 +198,10 @@ class _RecentReportsList extends StatelessWidget {
 
         // Sort newest first in Dart so we don't need a composite index.
         docs.sort((a, b) {
-          final ta = (a.data() as Map<String, dynamic>)['timestamp']
-              as Timestamp?;
-          final tb = (b.data() as Map<String, dynamic>)['timestamp']
-              as Timestamp?;
+          final ta =
+              (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+          final tb =
+              (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
           if (ta == null && tb == null) return 0;
           if (ta == null) return 1;
           if (tb == null) return -1;

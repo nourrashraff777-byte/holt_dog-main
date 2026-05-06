@@ -8,6 +8,10 @@ import 'core/services/auth_service.dart';
 import 'core/services/firestore_service.dart';
 import 'features/auth/cubit/auth_cubit.dart';
 import 'features/user_side/user_home/cubit/home_cubit.dart';
+import 'features/marketplace/data/data_sources/marketplace_remote_data_source.dart';
+import 'features/marketplace/data/repo/marketplace_repository.dart';
+import 'features/marketplace/presentation/manager/marketplace_cubit.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -37,6 +41,11 @@ class HoltDogApp extends StatelessWidget {
         providers: [
           RepositoryProvider(create: (context) => authService),
           RepositoryProvider(create: (context) => firestoreService),
+          RepositoryProvider<MarketplaceRepository>(
+            create: (context) => MarketplaceRepositoryImpl(
+              MarketplaceRemoteDataSourceImpl(FirebaseFirestore.instance),
+            ),
+          ),
         ],
         child: MultiBlocProvider(
           providers: [
@@ -46,6 +55,11 @@ class HoltDogApp extends StatelessWidget {
             BlocProvider(
               create: (context) =>
                   HomeCubit(context.read<FirestoreService>())..init(),
+            ),
+            BlocProvider(
+              create: (context) =>
+                  MarketplaceCubit(context.read<MarketplaceRepository>())
+                    ..fetchProducts(),
             ),
           ],
           child: ScreenUtilInit(
