@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:holt_dog/core/services/location_service.dart';
 import 'package:intl/intl.dart';
 import 'package:holt_dog/core/widgets/app_drawer.dart';
 import 'package:holt_dog/features/auth/cubit/auth_cubit.dart';
@@ -72,8 +73,8 @@ class _InsuranceNavBarSimple extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Icon(Icons.home,
-                  color: AppColors.primaryPurple, size: 28.w),
+              child:
+                  Icon(Icons.home, color: AppColors.primaryPurple, size: 28.w),
             ),
             SizedBox(height: 4.h),
             Text(
@@ -142,7 +143,8 @@ class _InsuranceHomeBody extends StatelessWidget {
                 )
               else
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
                   child: ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
@@ -208,8 +210,82 @@ class _ResultCard extends StatelessWidget {
     }
   }
 
-  Color _confColor(int c) =>
-      c >= 90 ? Colors.green : c >= 75 ? Colors.orange : Colors.red;
+  Color _confColor(int c) => c >= 90
+      ? Colors.green
+      : c >= 75
+          ? Colors.orange
+          : Colors.red;
+
+  /// Parses "lat, lng" from free-text only when both parts look like numbers.
+  (double, double)? _tryCoordinatePair(String s) {
+    final parts = s.split(',');
+    if (parts.length < 2) return null;
+    final lat = LocationService.parseCoord(parts[0].trim());
+    final lng = LocationService.parseCoord(parts[1].trim());
+    if (lat == null || lng == null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return (lat, lng);
+  }
+
+  Widget _locationRow() {
+    String addressOnly = (data['address'] as String?) ?? '';
+    if (addressOnly.isEmpty && data['location'] is String) {
+      addressOnly = data['location'] as String;
+    }
+
+    if (data['location'] is GeoPoint) {
+      final gp = data['location'] as GeoPoint;
+      return FutureBuilder<String>(
+        future: LocationService.getCityName(gp.latitude, gp.longitude),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return _row(
+                'Location',
+                addressOnly.isNotEmpty ? addressOnly : 'Looking up city…',
+                Icons.location_on_outlined);
+          }
+          if (snap.hasData && snap.data!.isNotEmpty) {
+            return _row('Location', snap.data!, Icons.location_on_outlined);
+          }
+          return _row(
+            'Location',
+            addressOnly.isNotEmpty
+                ? addressOnly
+                : '${gp.latitude.toStringAsFixed(4)}, '
+                    '${gp.longitude.toStringAsFixed(4)}',
+            Icons.location_on_outlined,
+          );
+        },
+      );
+    }
+
+    final pair = _tryCoordinatePair(addressOnly);
+    if (pair != null) {
+      final lat = pair.$1;
+      final lng = pair.$2;
+      return FutureBuilder<String>(
+        future: LocationService.getCityName(lat, lng),
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return _row('Location', 'Resolving location…',
+                Icons.location_on_outlined);
+          }
+          if (snap.hasData && snap.data!.isNotEmpty) {
+            return _row('Location', snap.data!, Icons.location_on_outlined);
+          }
+          return _row(
+            'Location',
+            '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}',
+            Icons.location_on_outlined,
+          );
+        },
+      );
+    }
+
+    final display =
+        addressOnly.isNotEmpty ? addressOnly : data['address']?.toString() ?? '—';
+    return _row('Location', display, Icons.location_on_outlined);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -218,16 +294,6 @@ class _ResultCard extends StatelessWidget {
     final analysis = (data['analysis'] is Map)
         ? Map<String, dynamic>.from(data['analysis'] as Map)
         : const <String, dynamic>{};
-
-    String location = (data['address'] as String?) ?? '';
-    if (location.isEmpty && data['location'] is GeoPoint) {
-      final gp = data['location'] as GeoPoint;
-      location =
-          '${gp.latitude.toStringAsFixed(4)}, ${gp.longitude.toStringAsFixed(4)}';
-    }
-    if (location.isEmpty && data['location'] is String) {
-      location = data['location'] as String;
-    }
 
     final mood = (analysis['mood'] ?? data['predictedMood'])?.toString() ?? '';
     final disease =
@@ -286,8 +352,8 @@ class _ResultCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: _statusColor(status).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
@@ -315,13 +381,9 @@ class _ResultCard extends StatelessWidget {
                   letterSpacing: 0.4),
             ),
 
-            _row('Location', location.isNotEmpty ? location : '—',
-                Icons.location_on_outlined),
-            _row('Dog Mood', mood.isNotEmpty ? mood : '—',
-                Icons.mood_outlined),
-            _row(
-                'Skin Condition',
-                disease.isNotEmpty ? disease : '—',
+            _locationRow(),
+            _row('Dog Mood', mood.isNotEmpty ? mood : '—', Icons.mood_outlined),
+            _row('Skin Condition', disease.isNotEmpty ? disease : '—',
                 Icons.health_and_safety_outlined),
             if (conf > 0)
               _row('Confidence', '$conf%', Icons.check_circle_outline,
@@ -373,8 +435,7 @@ class _ResultCard extends StatelessWidget {
               children: [
                 Text(label,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF3A3A3A))),
+                        fontWeight: FontWeight.w700, color: Color(0xFF3A3A3A))),
                 const SizedBox(height: 4),
                 Text(value,
                     style: TextStyle(
@@ -416,10 +477,7 @@ class _UploadedByCard extends StatelessWidget {
         String email = '';
         if (snap.hasData && snap.data!.exists) {
           final data = snap.data!.data() as Map<String, dynamic>? ?? {};
-          name = (data['displayName'] ??
-                  data['name'] ??
-                  data['username'] ??
-                  '')
+          name = (data['displayName'] ?? data['name'] ?? data['username'] ?? '')
               .toString()
               .trim();
           email = (data['email'] ?? '').toString().trim();
@@ -544,8 +602,7 @@ class _StatusButtons extends StatelessWidget {
           onTap: active ? null : () => _set(o.$1),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: active ? o.$3 : o.$3.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),

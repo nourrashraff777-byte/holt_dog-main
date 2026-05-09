@@ -31,6 +31,10 @@ class LocationResult {
 class LocationService {
   LocationService._();
 
+  /// Same-coordinate reverse-geocode calls share one [Future] (stable for
+  /// [FutureBuilder] across rebuilds; avoids hammering Nominatim).
+  static final Map<String, Future<String>> _reverseGeocodeMemo = {};
+
   // ──────────────────────────────────────────────────────────────────────────
   // Permission helpers
   // ──────────────────────────────────────────────────────────────────────────
@@ -173,17 +177,25 @@ class LocationService {
   // Reverse-geocoding (city name from coordinates)
   // ──────────────────────────────────────────────────────────────────────────
 
-  /// Returns a human-readable city string for the given [lat]/[lng] using the
-  /// free Nominatim API (OpenStreetMap).  Falls back to the raw coordinates if
-  /// the network request fails.
-  static Future<String> getCityName(double lat, double lng) async {
+  /// Returns a human-readable city or area label for [lat]/[lng] via Nominatim.
+  ///
+  /// Results are memoised per rounded coordinate pair so widgets can rebuild
+  /// without restarting requests or flipping back to numeric coordinates.
+  static Future<String> getCityName(double lat, double lng) {
+    final key =
+        '${lat.toStringAsFixed(4)}_${lng.toStringAsFixed(4)}'; // ~11 m cells
+    return _reverseGeocodeMemo.putIfAbsent(
+        key, () => _getCityNameInternal(lat, lng));
+  }
+
+  static Future<String> _getCityNameInternal(double lat, double lng) async {
     try {
       final dio = Dio();
       dio.options
-        ..connectTimeout = const Duration(seconds: 8)
-        ..receiveTimeout = const Duration(seconds: 8)
+        ..connectTimeout = const Duration(seconds: 12)
+        ..receiveTimeout = const Duration(seconds: 12)
         ..headers = {
-          'User-Agent': 'HoltDog/1.0 (holtdogapp@example.com)',
+          'User-Agent': 'HoltDog/1.0 (support@holtdog.app)',
         };
 
       final response = await dio.get(
@@ -191,31 +203,95 @@ class LocationService {
         queryParameters: {
           'lat': lat,
           'lon': lng,
-          'format': 'json',
+          'format': 'jsonv2',
           'accept-language': 'en',
+          // Town / district scale — high zoom tends to omit city in address.
+          'zoom': 10,
+          'addressdetails': '1',
         },
       );
 
-      final data = response.data as Map<String, dynamic>;
-      final address = data['address'] as Map<String, dynamic>?;
-      if (address == null) return _coordsFallback(lat, lng);
-
-      // Pick the most specific available place name
-      final city = address['city'] ??
-          address['town'] ??
-          address['village'] ??
-          address['county'] ??
-          address['state'] ??
-          '';
-      final country = address['country'] ?? '';
-
-      if (city.toString().isNotEmpty) {
-        return '$city, $country';
+      if (response.statusCode != 200) {
+        return _coordsFallback(lat, lng);
       }
+
+      final dynamic raw = response.data;
+      final Map<String, dynamic>? root = raw is Map<String, dynamic>
+          ? raw
+          : null;
+      if (root == null) return _coordsFallback(lat, lng);
+
+      final Map<String, dynamic>? address =
+          root['address'] is Map<String, dynamic>
+              ? Map<String, dynamic>.from(root['address'] as Map)
+              : null;
+
+      final fromAddress = address != null
+          ? _placeLabelFromNominatimAddress(address)
+          : null;
+      if (fromAddress != null && fromAddress.isNotEmpty) {
+        return fromAddress;
+      }
+
+      final displayName = root['display_name'] as String?;
+      final compact = _compactDisplayName(displayName);
+      if (compact.isNotEmpty) return compact;
+
       return _coordsFallback(lat, lng);
     } catch (_) {
       return _coordsFallback(lat, lng);
     }
+  }
+
+  /// Picks the best human place name from a Nominatim `address` object.
+  static String? _placeLabelFromNominatimAddress(
+      Map<String, dynamic> address) {
+    const placeKeys = [
+      'city',
+      'town',
+      'village',
+      'hamlet',
+      'municipality',
+      'city_district',
+      'suburb',
+      'neighbourhood',
+      'quarter',
+      'county',
+      'state_district',
+      'region',
+      'state',
+    ];
+
+    String? place;
+    for (final key in placeKeys) {
+      final raw = address[key]?.toString().trim();
+      if (raw != null && raw.isNotEmpty) {
+        place = raw;
+        break;
+      }
+    }
+    final country = address['country']?.toString().trim();
+
+    if (place != null && country != null && country.isNotEmpty) {
+      if (place.toLowerCase() == country.toLowerCase()) return place;
+      return '$place, $country';
+    }
+    if (place != null && place.isNotEmpty) return place;
+    if (country != null && country.isNotEmpty) return country;
+    return null;
+  }
+
+  /// Shortens Nominatim `display_name` to a concise "city / region" style line.
+  static String _compactDisplayName(String? full) {
+    if (full == null) return '';
+    final parts = full
+        .split(',')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '';
+    if (parts.length <= 3) return parts.join(', ');
+    return '${parts[0]}, ${parts[1]}, ${parts[2]}';
   }
 
   static String _coordsFallback(double lat, double lng) =>
