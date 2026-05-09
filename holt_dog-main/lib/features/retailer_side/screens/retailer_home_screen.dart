@@ -20,7 +20,7 @@ class _HomeScreenState extends State<RetailerHomeScreen> {
   int _currentIndex = 0;
 
   final List<Widget> _screens = [
-    const MarketplaceScreen(),
+    const MarketplaceScreen(isRetailer: true),
     const RetailerOrdersScreen(),
   ];
 

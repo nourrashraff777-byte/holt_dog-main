@@ -7,11 +7,14 @@ import '../../data/models/product_model.dart';
 class ProductCard extends StatelessWidget {
   final ProductModel product;
   final VoidCallback onAddToCart;
-
+  // final VoidCallback onOpenCart;
+  final bool isRetailer;
   const ProductCard({
     super.key,
     required this.product,
     required this.onAddToCart,
+    // required this.onOpenCart,
+    this.isRetailer = false,
   });
 
   @override
@@ -22,7 +25,7 @@ class ProductCard extends StatelessWidget {
       shadowColor: Colors.black.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(18.r),
       child: InkWell(
-        onTap: () {},
+        onTap: isRetailer ? null : onAddToCart,
         borderRadius: BorderRadius.circular(18.r),
         child: Padding(
           padding: EdgeInsets.all(12.w),
@@ -79,25 +82,26 @@ class ProductCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      Positioned(
-                        top: 0,
-                        right: 0,
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap: onAddToCart,
-                            borderRadius: BorderRadius.circular(12.r),
-                            child: Padding(
-                              padding: EdgeInsets.all(6.w),
-                              child: Icon(
-                                Icons.add_shopping_cart_outlined,
-                                color: AppColors.statusRescued,
-                                size: 26.w,
+                      if (!isRetailer)
+                        Positioned(
+                          top: 0,
+                          right: 0,
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: onAddToCart,
+                              borderRadius: BorderRadius.circular(12.r),
+                              child: Padding(
+                                padding: EdgeInsets.all(6.w),
+                                child: Icon(
+                                  Icons.add_shopping_cart_outlined,
+                                  color: AppColors.statusRescued,
+                                  size: 26.w,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
                       Align(
                         alignment: Alignment.bottomRight,
                         child: Text(

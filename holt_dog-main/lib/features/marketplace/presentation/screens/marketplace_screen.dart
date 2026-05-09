@@ -11,11 +11,14 @@ import '../manager/marketplace_cubit.dart';
 import '../manager/marketplace_state.dart';
 import '../widgets/product_card.dart';
 import 'add_product_screen.dart';
+import 'marketplace_cart_screen.dart';
 
 class MarketplaceScreen extends StatefulWidget {
+  final bool isRetailer;
   final ValueChanged<int>? onCartItemCountChanged;
 
-  const MarketplaceScreen({super.key, this.onCartItemCountChanged});
+  const MarketplaceScreen(
+      {super.key, this.onCartItemCountChanged, this.isRetailer = false});
 
   @override
   State<MarketplaceScreen> createState() => _MarketplaceScreenState();
@@ -54,74 +57,109 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.backgroundGray,
-      floatingActionButton: Padding(
-        padding: EdgeInsets.only(bottom: 80.h),
-        child: FloatingActionButton(
-          onPressed: _executeOpenAddProduct,
-          backgroundColor: AppColors.primaryPurple,
-          child: const Icon(Icons.add, color: Colors.white),
+  Future<void> _executeOpenCart() async {
+    final cubitState = context.read<MarketplaceCubit>().state;
+    if (cubitState is! MarketplaceSuccess) return;
+
+    final updated = await Navigator.push<Map<String, int>>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MarketplaceCartScreen(
+          initialQuantities: Map<String, int>.from(_cartQtyByProductId),
+          catalog: cubitState.products,
         ),
       ),
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _MarketplaceAppBar(
-              cartItemCount: _totalCartItems,
-              onCartTap: () {}, // Implementation omitted for brevity
-            ),
-            _CategoryStrip(
-              selected: _selectedCategory,
-              onSelected: (c) => setState(() => _selectedCategory = c),
-            ),
-            Expanded(
-              child: BlocBuilder<MarketplaceCubit, MarketplaceState>(
-                builder: (context, state) {
-                  if (state is MarketplaceLoading) {
-                    return const Center(child: CircularProgressIndicator());
-                  } else if (state is MarketplaceSuccess) {
-                    final products =
-                        _selectedCategory == MarketplaceCategory.all
+    );
+    if (updated != null && mounted) {
+      setState(() {
+        _cartQtyByProductId
+          ..clear()
+          ..addAll(updated);
+      });
+      _notifyCartCount();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+    return Material(
+      color: AppColors.backgroundGray,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _MarketplaceAppBar(
+                  isRetailer: widget.isRetailer,
+                  cartItemCount: _totalCartItems,
+                  onCartTap: widget.isRetailer ? () {} : _executeOpenCart,
+                ),
+                _CategoryStrip(
+                  selected: _selectedCategory,
+                  onSelected: (c) => setState(() => _selectedCategory = c),
+                ),
+                Expanded(
+                  child: BlocBuilder<MarketplaceCubit, MarketplaceState>(
+                    builder: (context, state) {
+                      if (state is MarketplaceLoading) {
+                        return const Center(child: CircularProgressIndicator());
+                      } else if (state is MarketplaceSuccess) {
+                        final products = _selectedCategory ==
+                                MarketplaceCategory.all
                             ? state.products
                             : state.products
                                 .where((p) => p.category == _selectedCategory)
                                 .toList();
 
-                    if (products.isEmpty) {
-                      return _buildEmptyState();
-                    }
+                        if (products.isEmpty) {
+                          return _buildEmptyState();
+                        }
 
-                    return RefreshIndicator(
-                      onRefresh: () =>
-                          context.read<MarketplaceCubit>().fetchProducts(),
-                      child: ListView.separated(
-                        padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 120.h),
-                        itemCount: products.length,
-                        separatorBuilder: (_, __) => SizedBox(height: 14.h),
-                        itemBuilder: (context, index) {
-                          return ProductCard(
-                            product: products[index],
-                            onAddToCart: () =>
-                                _executeAddToCart(products[index]),
-                          );
-                        },
-                      ),
-                    );
-                  } else if (state is MarketplaceError) {
-                    log('Error: ${state.message}');
-                    return Center(child: Text('Error: ${state.message}'));
-                  }
-                  return const SizedBox.shrink();
-                },
+                        return RefreshIndicator(
+                          onRefresh: () =>
+                              context.read<MarketplaceCubit>().fetchProducts(),
+                          child: ListView.separated(
+                            padding:
+                                EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 120.h),
+                            itemCount: products.length,
+                            separatorBuilder: (_, __) => SizedBox(height: 14.h),
+                            itemBuilder: (context, index) {
+                              return ProductCard(
+                                isRetailer: widget.isRetailer,
+                                product: products[index],
+                                onAddToCart: () =>
+                                    _executeAddToCart(products[index]),
+                                // onOpenCart: _executeOpenCart,
+                              );
+                            },
+                          ),
+                        );
+                      } else if (state is MarketplaceError) {
+                        log('Error: ${state.message}');
+                        return Center(child: Text('Error: ${state.message}'));
+                      }
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (widget.isRetailer)
+            Positioned(
+              right: 16.w,
+              bottom: bottomInset,
+              child: FloatingActionButton(
+                onPressed: _executeOpenAddProduct,
+                backgroundColor: AppColors.primaryPurple,
+                child: const Icon(Icons.add, color: Colors.white),
               ),
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -148,8 +186,10 @@ class _MarketplaceScreenState extends State<MarketplaceScreen> {
 class _MarketplaceAppBar extends StatelessWidget {
   final int cartItemCount;
   final VoidCallback onCartTap;
+  final bool isRetailer;
 
   const _MarketplaceAppBar({
+    this.isRetailer = false,
     required this.cartItemCount,
     required this.onCartTap,
   });
@@ -161,15 +201,25 @@ class _MarketplaceAppBar extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       child: Row(
         children: [
+          IconButton(
+            onPressed: () {
+              final scaffold = Scaffold.maybeOf(context);
+              if (scaffold?.hasDrawer == true) {
+                scaffold!.openDrawer();
+              }
+            },
+            icon: Icon(
+              Icons.person_outline,
+              color: AppColors.textOnPurple,
+              size: 26.w,
+            ),
+          ),
           Expanded(
-            child: Padding(
-              padding: EdgeInsets.only(left: 8.w),
-              child: Text(
-                'Marketplace',
-                style: AppTypography.h3.copyWith(
-                  color: AppColors.textOnPurple,
-                  fontWeight: FontWeight.w800,
-                ),
+            child: Text(
+              'Marketplace',
+              style: AppTypography.h3.copyWith(
+                color: AppColors.textOnPurple,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ),
@@ -179,8 +229,9 @@ class _MarketplaceAppBar extends StatelessWidget {
               clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
-                Icon(Icons.shopping_cart_outlined,
-                    color: AppColors.textOnPurple, size: 26.w),
+                if (!isRetailer)
+                  Icon(Icons.shopping_cart_outlined,
+                      color: AppColors.textOnPurple, size: 26.w),
                 if (cartItemCount > 0)
                   Positioned(
                     right: -2.w,
