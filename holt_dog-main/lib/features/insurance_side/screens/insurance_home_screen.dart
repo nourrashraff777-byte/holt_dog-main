@@ -448,16 +448,16 @@ class _CityOverviewCard extends StatelessWidget {
             SizedBox(height: 14.h),
             Row(
               children: [
-                Expanded(
-                  child: _pillStat(
-                    icon: Icons.pets_rounded,
-                    bg: AppColors.statusRescuedBg,
-                    fg: AppColors.statusRescued,
-                    value: '${stats.goodDogs}',
-                    label: 'Good dogs\n(healthy scans)',
-                  ),
-                ),
-                SizedBox(width: 10.w),
+                // Expanded(
+                //   child: _pillStat(
+                //     icon: Icons.pets_rounded,
+                //     bg: AppColors.statusRescuedBg,
+                //     fg: AppColors.statusRescued,
+                //     value: '${stats.goodDogs}',
+                //     label: 'Good dogs\n(healthy scans)',
+                //   ),
+                // ),
+                // SizedBox(width: 10.w),
                 Expanded(
                   child: _pillStat(
                     icon: Icons.monitor_heart_outlined,

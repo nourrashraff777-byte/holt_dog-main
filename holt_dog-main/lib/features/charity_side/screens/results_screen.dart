@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
@@ -24,8 +25,7 @@ class ResultsScreen extends StatelessWidget {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child:
-                        CircularProgressIndicator(color: Color(0xFF4A148C)),
+                    child: CircularProgressIndicator(color: Color(0xFF4A148C)),
                   );
                 }
                 if (snapshot.hasError) {
@@ -41,12 +41,11 @@ class ResultsScreen extends StatelessWidget {
                 }
 
                 return ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   itemCount: docs.length,
                   itemBuilder: (context, i) {
-                    final data =
-                        docs[i].data() as Map<String, dynamic>;
+                    final data = docs[i].data() as Map<String, dynamic>;
                     return _ResultCard(data: data, docId: docs[i].id);
                   },
                 );
@@ -93,14 +92,12 @@ class ResultsScreen extends StatelessWidget {
             ),
           ),
           StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('scans')
-                .snapshots(),
+            stream: FirebaseFirestore.instance.collection('scans').snapshots(),
             builder: (_, snap) {
               final count = snap.data?.docs.length ?? 0;
               return Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
@@ -187,8 +184,11 @@ class _ResultCard extends StatelessWidget {
     }
   }
 
-  Color _confColor(int c) =>
-      c >= 90 ? Colors.green : c >= 75 ? Colors.orange : Colors.red;
+  Color _confColor(int c) => c >= 90
+      ? Colors.green
+      : c >= 75
+          ? Colors.orange
+          : Colors.red;
 
   @override
   Widget build(BuildContext context) {
@@ -220,6 +220,7 @@ class _ResultCard extends StatelessWidget {
     final dateStr = timestamp != null
         ? DateFormat('d MMM yyyy · h:mm a').format(timestamp)
         : '—';
+    final imageUrl = (data['imageUrl'] as String?) ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16, top: 4),
@@ -264,8 +265,8 @@ class _ResultCard extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: _statusColor(status).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
@@ -279,6 +280,30 @@ class _ResultCard extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+
+            const SizedBox(height: 12),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: double.infinity,
+                      height: 180,
+                      fit: BoxFit.cover,
+                      placeholder: (_, __) => Container(
+                        height: 180,
+                        color: const Color(0xFFE9ECF3),
+                        child: const Center(
+                          child: CircularProgressIndicator(
+                            color: Color(0xFF4A148C),
+                            strokeWidth: 2,
+                          ),
+                        ),
+                      ),
+                      errorWidget: (_, __, ___) => _scanImagePlaceholder(),
+                    )
+                  : _scanImagePlaceholder(),
             ),
 
             const SizedBox(height: 10),
@@ -295,11 +320,8 @@ class _ResultCard extends StatelessWidget {
 
             _row('Location', location.isNotEmpty ? location : '—',
                 Icons.location_on_outlined),
-            _row('Dog Mood', mood.isNotEmpty ? mood : '—',
-                Icons.mood_outlined),
-            _row(
-                'Skin Condition',
-                disease.isNotEmpty ? disease : '—',
+            _row('Dog Mood', mood.isNotEmpty ? mood : '—', Icons.mood_outlined),
+            _row('Skin Condition', disease.isNotEmpty ? disease : '—',
                 Icons.health_and_safety_outlined),
             if (conf > 0)
               _row('Confidence', '$conf%', Icons.check_circle_outline,
@@ -311,6 +333,26 @@ class _ResultCard extends StatelessWidget {
             _StatusButtons(docId: docId, current: status),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _scanImagePlaceholder() {
+    return Container(
+      height: 180,
+      width: double.infinity,
+      color: const Color(0xFFE9ECF3),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.image_not_supported_outlined,
+              size: 40, color: Colors.grey[400]),
+          const SizedBox(height: 8),
+          Text(
+            'No scan image',
+            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+          ),
+        ],
       ),
     );
   }
@@ -335,8 +377,7 @@ class _ResultCard extends StatelessWidget {
               children: [
                 Text(label,
                     style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF3A3A3A))),
+                        fontWeight: FontWeight.w700, color: Color(0xFF3A3A3A))),
                 const SizedBox(height: 4),
                 Text(value,
                     style: TextStyle(
@@ -398,8 +439,7 @@ class _StatusButtons extends StatelessWidget {
           onTap: active ? null : () => _set(o.$1),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
             decoration: BoxDecoration(
               color: active ? o.$3 : o.$3.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),

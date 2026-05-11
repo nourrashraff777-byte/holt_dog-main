@@ -66,17 +66,20 @@ class DoctorQuickActionHeader extends StatelessWidget {
                       ),
                       SizedBox(width: 15.w),
                     ],
-                    Text(
-                      title ??
-                          (userName.isEmpty
-                              ? 'welcome Doctor!'
-                              : 'welcome , $userName !'),
-                      style: GoogleFonts.inter(
-                        fontSize: title != null ? 24.sp : 28.sp,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                    Expanded(
+                      child: Text(
+                        title ??
+                            (userName.isEmpty
+                                ? 'welcome Doctor!'
+                                : 'welcome , $userName !'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: title != null ? 20.sp : 24.sp,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
